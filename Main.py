@@ -35,8 +35,8 @@ Firm2 = firm(Possible_States,Possible_Actions)
 
 #State log
 State_log = deque(maxlen=lags)
-State_log.append([1, 2])
-State_log.append([3, 4])
+State_log.append([1, 1])
+#State_log.append([3, 4])
 
 Industry_m = 1
 Profits_log = np.empty((GameLen, 2))

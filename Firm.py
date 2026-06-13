@@ -23,10 +23,11 @@ class Firm:
 
     def decodelog(self,log):
         F1_old,F2_old = log[0] # two periods ago
-        F1_new,F2_new = log[1] #last period
+        #F1_new,F2_new = log[1] #last period
 
-        raw_prices = [F1_new, F1_old, F2_new, F2_old]
-        
+        #raw_prices = [F1_new, F1_old, F2_new, F2_old]
+        raw_prices = [F1_old, F2_old]
+
         price_indices = [int(np.searchsorted(self.price_options, p)) for p in raw_prices]
 
         return price_indices

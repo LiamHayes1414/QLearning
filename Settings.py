@@ -10,11 +10,11 @@ DemandFn = Callable[[np.ndarray, np.ndarray], np.ndarray]
 #Settings data (variables)
 @dataclass(slots=True)
 class Config:
-    lags: int = 2
+    lags: int = 1
     firms: int = 2
     mrktsz: int = 1000
     position_options: list = field(default_factory=lambda: [1, 0])  # 1=Leader, 0=Follower
-    mc: int = 0
+    mc: int = 1
     a: float = 0.1
     b: float = 0.5
     demand: Optional[DemandFn] = None
