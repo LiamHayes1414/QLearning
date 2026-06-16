@@ -19,12 +19,12 @@ class Config:
     a: float = 0.1
     b: float = 0.5
     demand: Optional[DemandFn] = None
-    gamelen: int = 1000000
+    gamelen: int = 10000000
     K: float = 50  # Chance for no innovation to occur
     delta: float = 0.95
     epsilon_start: float = 1.0
     epsilon_min: float = 0.05
-    epsilon_decay: float = 0.9999999
+    epsilon_decay: float = 0.999999
     learningrate = 0.25
     prices_count = 15
     investments_count = 5
