@@ -1,10 +1,8 @@
 import numpy as np
-from Settings import Config
-
 
 class Firm:
 
-    def __init__(self,Possible_States,Possible_Actions):
+    def __init__(self,Possible_States,Possible_Actions,SettingsConfig):
 
         #Initialize Q-Matrix
         state_shape = tuple(len(set(index_elements)) for index_elements in zip(*Possible_States))
@@ -14,19 +12,21 @@ class Firm:
         self.visit_counts = np.zeros(state_shape + action_shape, dtype=np.int32) 
         #^store how many times each state action part is visited to make the model aware of its confidence
 
+        self.config = SettingsConfig
+
         #Initialize settings obj
-        self.price_options = Config().price_options
+        self.price_options = self.config.price_options
         self.possible_actions = Possible_Actions
 
         self.Leader = 0 #binary indicator if firm is leader or not
-
+  
 
     def decodelog(self,log):
         F1_old,F2_old = log[0] # two periods ago
         #F1_new,F2_new = log[1] #last period
 
         #raw_prices = [F1_new, F1_old, F2_new, F2_old]
-        raw_prices = [F1_old, F2_old]
+        raw_prices = [F1_old,F2_old]
 
         price_indices = [int(np.searchsorted(self.price_options, p)) for p in raw_prices]
 
@@ -39,16 +39,14 @@ class Firm:
 
         #add position indicator (currently leader or follower)
         price_indices.append(int(self.Leader))
+        
 
         state_index = tuple(price_indices)
         state_action_values = self.Q_matrix[state_index]
         state_action_visits = self.visit_counts[state_index]
 
         if np.random.random() < epsilon : 
-            #within probability of epsilon, choose random action
-  
-            #action_index = np.random.randint(len(self.possible_actions))
-
+            #within probability of epsilon, choose least visited action
             min_visits = np.min(state_action_visits)
             min_indices = np.flatnonzero(state_action_visits == min_visits)
             action_index = np.random.choice(min_indices)

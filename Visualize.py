@@ -10,12 +10,12 @@ def plotting(
     profits_log,
     price_log,
     invest_log,
-    max_points=10000,
-    smooth_window=None,
+    config,
     save_path="TrainingResults/training_plots.png",
     show=False,
     fig_size=(16, 8.125),
-    dpi=120,
+    dpi=300,
+    max_plot_points=10000,
 ):
 
     logs = [
@@ -27,35 +27,37 @@ def plotting(
     matrices = []
     for title, _, log in logs:
         matrix = np.asarray(log)
-        if matrix.ndim != 2 or matrix.shape[1] < 2:
-            raise ValueError(f"{title} log must contain one firm pair per turn, e.g. [[firm1, firm2], ...]")
         matrices.append(matrix)
 
     total_points = len(matrices[0])
-    if any(len(matrix) != total_points for matrix in matrices):
-        raise ValueError("profits_log, price_log, and invest_log must have the same number of turns")
-
     turns = np.arange(total_points)
 
-    if total_points > max_points:
-        sample_idx = np.linspace(0, total_points - 1, max_points, dtype=int)
-        plot_turns = turns[sample_idx]
-        plot_matrices = [matrix[sample_idx] for matrix in matrices]
+    downsample_step = max(1, int(np.ceil(total_points / max_plot_points)))
+    if downsample_step > 1:
+        plot_turns = []
+        plot_matrices = [[] for _ in matrices]
+
+        for start in range(0, total_points, downsample_step):
+            end = min(start + downsample_step, total_points)
+            plot_turns.append(turns[end - 1])
+
+            for matrix_index, matrix in enumerate(matrices):
+                plot_matrices[matrix_index].append(matrix[start:end].mean(axis=0))
+
+        plot_turns = np.asarray(plot_turns)
+        plot_matrices = [np.asarray(plot_matrix) for plot_matrix in plot_matrices]
     else:
         plot_turns = turns
         plot_matrices = matrices
 
-    if smooth_window is None:
-        smooth_window = max(1, len(plot_turns) // 20)
-    else:
-        smooth_window = min(smooth_window, len(plot_turns))
+    smooth_window = max(1, len(plot_turns) // 20)
+    label_x = plot_turns[min(smooth_window, len(plot_turns) - 1)]
 
-    fig, axes = plt.subplots(3, 1, figsize=fig_size, sharex=True, constrained_layout=True)
+
+    fig, axes = plt.subplots(3, 1, figsize=fig_size, sharex=True)
     firm_colors = ["tab:blue", "tab:orange"]
 
     for ax, (title, ylabel, _), plot_matrix in zip(axes, logs, plot_matrices):
-        ax.plot(plot_turns, plot_matrix[:, 0], linestyle='None', marker='.', markersize=1.5, alpha=0.25, color=firm_colors[0], label='Firm 1 points')
-        ax.plot(plot_turns, plot_matrix[:, 1], linestyle='None', marker='.', markersize=1.5, alpha=0.25, color=firm_colors[1], label='Firm 2 points')
 
         if smooth_window > 1:
             kernel = np.ones(smooth_window) / smooth_window
@@ -68,17 +70,133 @@ def plotting(
 
         ax.set_ylabel(ylabel)
         ax.set_title(f'Firm 1 vs Firm 2 {title.lower()}')
+
+        monopoly_colour = '#C62828'
+        leader_colour = '#1565C0'
+        follower_colour = '#2E7D32'
+
+        if title.lower() == "prices":
+            width = 1.2
+            size = 8
+            #Monopoly price line
+            monopoly_y = config.MonopolyP 
+            ax.axhline(y=monopoly_y, color=monopoly_colour, linestyle='-', linewidth=width)
+            ax.text(x=label_x,y=monopoly_y,s='*Monopoly',color=monopoly_colour,va='center',ha='left',fontsize=size,
+                    bbox=dict(
+                        facecolor='white',    
+                        boxstyle='round,pad=0.2' 
+                    )
+                    )
+            
+            if config.firms !=1:
+
+                #Leader price
+                leader_y = config.LeaderP 
+                ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
+
+                #Follower price
+                follower_y = config.FollowerP 
+                ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
+                
+        elif title.lower() == "investments":
+            width = 1.2
+            size = 8
+            #Monopoly price line
+            monopoly_y = config.MonopolyX 
+            ax.axhline(y=monopoly_y, color=monopoly_colour, linestyle='-', linewidth=width)
+            ax.text(x=label_x,y=monopoly_y,s='*Monopoly',color=monopoly_colour,va='center',ha='left',fontsize=size,
+                    bbox=dict(
+                        facecolor='white',    
+                        boxstyle='round,pad=0.2' 
+                    )
+                    )
+            
+            if config.firms !=1:
+
+                #Leader price
+                leader_y = config.LeaderX 
+                ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
+
+                #Follower price
+                follower_y = config.FollowerX
+                ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
+            
+        elif title.lower() == "profits":
+            width = 1.2
+            size = 8
+            #Monopoly price line
+            monopoly_y = config.MonopolyProfit
+            ax.axhline(y=monopoly_y, color=monopoly_colour, linestyle='-', linewidth=width)
+            ax.text(x=label_x,y=monopoly_y,s='*Monopoly',color=monopoly_colour,va='center',ha='left',fontsize=size,
+                    bbox=dict(
+                        facecolor='white',    
+                        boxstyle='round,pad=0.2' 
+                    )
+                    )
+            
+            if config.firms !=1:
+
+                #Leader price
+                leader_y = config.LeaderProfit 
+                ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
+
+                #Follower price
+                follower_y = config.FollowerProfit
+                ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
+
+
         ax.grid(True, alpha=0.25)
         ax.margins(x=0)
-        ax.legend(loc="best")
 
     axes[-1].set_xlabel('Turns')
     axes[-1].xaxis.set_major_locator(MaxNLocator(nbins=10, integer=True))
 
+
+    handles, labels = ax.get_legend_handles_labels()
+
+    # Place a single legend below all three plots.
+    fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, 0.01), ncol=len(labels))
+
     if save_path is not None:
         save_path = Path(save_path)
         save_path.parent.mkdir(parents=True, exist_ok=True)
-        fig.savefig(save_path, dpi=dpi)
+        fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
 
     if show:
         plt.show()
@@ -94,7 +212,7 @@ def plot_visit_counts_3d(
     save_path="TrainingResults/visit_counts_3d.png",
     show=False,
     fig_size=(16, 8.125),
-    dpi=120,
+    dpi=300,
 ):
     count_matrices = [
         ("Firm 1 state-action decisions", np.asarray(firm1_counts)),
