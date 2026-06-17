@@ -23,8 +23,6 @@ GameLen = config.gamelen
 K = config.K
 delta = config.delta
 mrktsz = config.mrktsz
-epsilon_start = config.epsilon_start
-epsilon_min = config.epsilon_min
 epsilon_decay = config.epsilon_decay
 learning_rate = config.learningrate
 
@@ -53,7 +51,7 @@ Invest_log = np.empty((GameLen, 2))
 
 for round in tqdm(range(GameLen)):
 
-    epsilon = max(epsilon_min, epsilon_start * (epsilon_decay ** round))
+    epsilon = max((epsilon_decay*round) + 1,0)
 
     Prices = []
     Investments = []

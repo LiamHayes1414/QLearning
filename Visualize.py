@@ -13,9 +13,9 @@ def plotting(
     config,
     save_path="TrainingResults/training_plots.png",
     show=False,
-    fig_size=(16, 8.125),
+    fig_size=(16, 11),
     dpi=300,
-    max_plot_points=10000,
+    max_plot_points=20000,
 ):
 
     logs = [
@@ -50,14 +50,14 @@ def plotting(
         plot_turns = turns
         plot_matrices = matrices
 
-    smooth_window = max(1, len(plot_turns) // 20)
+    smooth_window = max(1, len(plot_turns) // 150)
     label_x = plot_turns[min(smooth_window, len(plot_turns) - 1)]
 
 
-    fig, axes = plt.subplots(3, 1, figsize=fig_size, sharex=True)
+    fig, axes = plt.subplots(4, 1, figsize=fig_size, sharex=True,gridspec_kw={'height_ratios': [1, 1, 1, 0.25]})
     firm_colors = ["tab:blue", "tab:orange"]
 
-    for ax, (title, ylabel, _), plot_matrix in zip(axes, logs, plot_matrices):
+    for ax, (title, ylabel, _), plot_matrix in zip(axes[:3], logs, plot_matrices):
 
         if smooth_window > 1:
             kernel = np.ones(smooth_window) / smooth_window
@@ -69,7 +69,7 @@ def plotting(
             ax.plot(smooth_turns, smooth_firm_2, linewidth=1, color=firm_colors[1], label=f'Firm 2 trend ({smooth_window})')
 
         ax.set_ylabel(ylabel)
-        ax.set_title(f'Firm 1 vs Firm 2 {title.lower()}')
+        ax.set_title(title)
 
         monopoly_colour = '#C62828'
         leader_colour = '#1565C0'
@@ -88,22 +88,22 @@ def plotting(
                     )
                     )
             
-            if config.firms !=1:
+       
 
-                #Leader price
-                leader_y = config.LeaderP 
-                ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
-                ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
-                        bbox=dict(
-                            facecolor='white',    
-                            boxstyle='round,pad=0.2' 
-                        )
-                        )
+            #Leader price
+            leader_y = config.LeaderP 
+            ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
+            ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
+                    bbox=dict(
+                        facecolor='white',    
+                        boxstyle='round,pad=0.2' 
+                    )
+                    )
 
-                #Follower price
-                follower_y = config.FollowerP 
-                ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
-                ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+            #Follower price
+            follower_y = config.FollowerP 
+            ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
+            ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
                         bbox=dict(
                             facecolor='white',    
                             boxstyle='round,pad=0.2' 
@@ -123,27 +123,27 @@ def plotting(
                     )
                     )
             
-            if config.firms !=1:
+      
 
-                #Leader price
-                leader_y = config.LeaderX 
-                ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
-                ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
-                        bbox=dict(
-                            facecolor='white',    
-                            boxstyle='round,pad=0.2' 
-                        )
-                        )
+            #Leader price
+            leader_y = config.LeaderX 
+            ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
+            ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
+                    bbox=dict(
+                        facecolor='white',    
+                        boxstyle='round,pad=0.2' 
+                    )
+                    )
 
-                #Follower price
-                follower_y = config.FollowerX
-                ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
-                ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
-                        bbox=dict(
-                            facecolor='white',    
-                            boxstyle='round,pad=0.2' 
-                        )
-                        )
+            #Follower price
+            follower_y = config.FollowerX
+            ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
+            ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+                    bbox=dict(
+                        facecolor='white',    
+                        boxstyle='round,pad=0.2' 
+                    )
+                    )
             
         elif title.lower() == "profits":
             width = 1.2
@@ -158,31 +158,41 @@ def plotting(
                     )
                     )
             
-            if config.firms !=1:
+            
 
-                #Leader price
-                leader_y = config.LeaderProfit 
-                ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
-                ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
-                        bbox=dict(
-                            facecolor='white',    
-                            boxstyle='round,pad=0.2' 
-                        )
-                        )
-
-                #Follower price
-                follower_y = config.FollowerProfit
-                ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
-                ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
-                        bbox=dict(
-                            facecolor='white',    
-                            boxstyle='round,pad=0.2' 
-                        )
-                        )
+            #Leader price
+            leader_y = config.LeaderProfit 
+            ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
+            ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
+                    bbox=dict(
+                        facecolor='white',    
+                        boxstyle='round,pad=0.2' 
+                    )
+                    )
+            
+            #Follower price
+            follower_y = config.FollowerProfit
+            ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
+            ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+                    bbox=dict(
+                        facecolor='white',    
+                        boxstyle='round,pad=0.2' 
+                    )
+                    )
 
 
         ax.grid(True, alpha=0.25)
         ax.margins(x=0)
+
+    ax4 = axes[3]
+    y_vals = np.maximum((config.epsilon_decay*turns) + 1,0)
+
+    # Plot the simple function
+    ax4.plot(turns, y_vals, color='purple')
+    ax4.set_title(r'$\text{Exploration Probability } \epsilon = MAX(\left(-\frac{0.5}{\text{GameLen}}\right) \times \text{Round} + 1$, 0)')
+    ax4.set_ylim(-0.1, 1.1)
+    ax4.grid(True, alpha=0.25)
+    ax4.margins(x=0)
 
     axes[-1].set_xlabel('Turns')
     axes[-1].xaxis.set_major_locator(MaxNLocator(nbins=10, integer=True))

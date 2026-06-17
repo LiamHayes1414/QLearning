@@ -11,25 +11,29 @@ DemandFn = Callable[[np.ndarray, np.ndarray], np.ndarray]
 #Settings data (variables)
 @dataclass(slots=True)
 class Config:
+    #Market Characteristics
     lags: int = 1
     firms: int = 2
     mrktsz: int = 1000
-    position_options: list = field(default_factory=lambda: [1,0])  # 1=Leader, 0=Follower
+    gamelen: int = 10**8
+    #Demand features
     mc: int = 1
     a: float = 0.1
     b: float = 0.5
     demand: Optional[DemandFn] = None
-    gamelen: int = 10000000
     K: float = 50  # Chance for no innovation to occur
     delta: float = 0.95
-    epsilon_start: float = 1.0
-    epsilon_min: float = 0.05
-    epsilon_decay: float = 0.999999
+    #Learning parameters
+    epsilon_decay: float = -1/(gamelen*0.75)
     learningrate = 0.25
+    #State variables
     prices_count = 15
     investments_count = 5
     price_interval_margin = 0.02
     investment_interval_margin = 0.1
+    position_options: list = field(default_factory=lambda: [1,0])  # 1=Leader, 0=Follower
+
+    #Holder variables
     MonopolyP: float = None
     FollowerP:float = None
     LeaderP:float=None
