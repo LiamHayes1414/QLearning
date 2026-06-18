@@ -311,7 +311,7 @@ def plotting(
 
     # Plot the simple function
     ax4.plot(turns, y_vals, color='purple')
-    ax4.set_title(r'$\text{Exploration Probability } \epsilon = MAX(\left(-\frac{0.75}{\text{GameLen}}\right) \times \text{Round} + 1$, 0)')
+    ax4.set_title(r'$\text{Exploration Probability } \epsilon = MAX(\left(-\frac{1}{\text{ExploreLen}}\right) \times \text{Round} + 1$, 0)')
     ax4.set_ylim(-0.1, 1.1)
     ax4.grid(True, alpha=0.25)
     ax4.margins(x=0)

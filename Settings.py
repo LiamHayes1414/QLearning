@@ -15,7 +15,8 @@ class Config:
     lags: int = 1
     firms: int = 2
     mrktsz: int = 1000
-    gamelen: int = 10**6
+    explorationlen: int = 10**6
+    caplen:int = 10**7
     #Demand features
     mc: int = 1
     a: float = 0.1
@@ -24,7 +25,7 @@ class Config:
     K: float = 50  # Chance for no innovation to occur
     delta: float = 0.95
     #Learning parameters
-    epsilon_decay: float = -1/(gamelen*0.75)
+    epsilon_decay: float = -1/(explorationlen)
     learningrate = 0.25
     #State variables
     prices_count = 15

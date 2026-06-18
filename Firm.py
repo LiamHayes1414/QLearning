@@ -21,7 +21,7 @@ class Firm:
         self.possible_actions = Possible_Actions
 
         self.Leader = 1 if self.config.firms == 1 else 0 #binary indicator if firm is leader or not (initialized at 1 if monopoly)
-
+        self.Stationarity_Counter = 0 #log how many consecutive updates are stationary (for solution convergence)
     def decodelog(self,log):
         flat_list = list(itertools.chain.from_iterable(log))
 
@@ -89,12 +89,18 @@ class Firm:
 
         state_index = tuple(price_indices)
         action_index = self.possible_actions.index(actions)
+        Prev_Val = self.Q_matrix[state_index][action_index]
 
         #Update value in place
         self.Q_matrix[state_index][action_index] = Value
 
         #Update visit count matrix
         self.visit_counts[state_index][action_index] += 1
+
+        if round(Prev_Val,2) == round(Value,2):
+            self.Stationarity_Counter+=1
+        else:
+            self.Stationarity_Counter = 0
 
 
 

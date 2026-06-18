@@ -18,7 +18,8 @@ positions = config.position_options
 investments = config.invest_options
 Demand = config.demand
 mc = config.mc
-GameLen = config.gamelen
+GameLen = config.explorationlen
+GameCap = config.caplen
 K = config.K
 delta = config.delta
 mrktsz = config.mrktsz
@@ -43,95 +44,106 @@ for lag in range(lags):
     State_log.append([1]*firms)
 
 Industry_m = 1
-Profits_log = np.empty((GameLen, firms+1))
-Price_log = np.empty((GameLen, firms+1))
-Invest_log = np.empty((GameLen, firms+1))
+Profits_log = np.empty((GameCap, firms+1))
+Price_log = np.empty((GameCap, firms+1))
+Invest_log = np.empty((GameCap, firms+1))
+round = 0
+Firm_Stationarity = [0]
+Stationarity_Target = 100000
+with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
+    while min(Firm_Stationarity) < Stationarity_Target:
+        if round == GameCap:
+            break
 
-for round in tqdm(range(GameLen)):
+        epsilon = max((epsilon_decay*round) + 1,0)
 
-    epsilon = max((epsilon_decay*round) + 1,0)
+        Prices = []
+        Investments = []
+        Leadership = []
+        for f in Firms:
+            Action = f.Action(State_log, epsilon)
+            Prices.append(Action[0])
+            Investments.append(Action[1])
+            Leadership.append(f.Leader)
 
-    Prices = []
-    Investments = []
-    Leadership = []
-    for f in Firms:
-        Action = f.Action(State_log, epsilon)
-        Prices.append(Action[0])
-        Investments.append(Action[1])
-        Leadership.append(f.Leader)
+        #Save current state for updating the Q-Matrix
+        CurrentState = list(State_log)
 
-    #Save current state for updating the Q-Matrix
-    CurrentState = list(State_log)
+        #Save actioned prices into state log
+        State_log.append(Prices)
 
-    #Save actioned prices into state log
-    State_log.append(Prices)
+        #Store in np arrays for vectorization
+        Price_Actions = np.array(Prices)
+        Investment_Actions = np.array(Investments)
+        Leader = np.array(Leadership)
 
-    #Store in np arrays for vectorization
-    Price_Actions = np.array(Prices)
-    Investment_Actions = np.array(Investments)
-    Leader = np.array(Leadership)
+        MarketShares = Demand(Price_Actions,Leader) * mrktsz #for readability
 
-    MarketShares = Demand(Price_Actions,Leader) * mrktsz #for readability
+        Profit = (Price_Actions - mc)*MarketShares - Investment_Actions
 
-    Profit = (Price_Actions - mc)*MarketShares - Investment_Actions
+        #Calculate best possible outcomes next period 
+        Leader_Best = []
+        Follower_Best = []
+        for f in Firms:
+            if config.firms >1:
+                L_Best,F_Best = f.ProfitExpectations(State_log)
 
-    #Calculate best possible outcomes next period 
-    Leader_Best = []
-    Follower_Best = []
-    for f in Firms:
+                Leader_Best.append(L_Best)
+                Follower_Best.append(F_Best)
+            elif firms == 1:
+                L_Best = f.ProfitExpectations(State_log)
+                Leader_Best.append(L_Best)
+
+
+        #Innovation success probabilities
         if config.firms >1:
-            L_Best,F_Best = f.ProfitExpectations(State_log)
+            MarketInnovation = np.sum(Investment_Actions) + K
+            Firm_Probabilities = Investment_Actions/MarketInnovation
 
-            Leader_Best.append(L_Best)
-            Follower_Best.append(F_Best)
-        elif firms == 1:
-             L_Best = f.ProfitExpectations(State_log)
-             Leader_Best.append(L_Best)
+            LeaderBest = np.array(Leader_Best)
+            FollowerBest = np.array(Follower_Best)
 
+            ValueExpectations = (1-learning_rate)*Profit + learning_rate*delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest)
+        elif config.firms == 1:
+            LeaderBest = np.array(Leader_Best)
+            #In monopoly firm is guaranteed to remain leader
+            ValueExpectations = (1-learning_rate)*Profit + learning_rate*delta*LeaderBest
 
-    #Innovation success probabilities
-    if config.firms >1:
-        MarketInnovation = np.sum(Investment_Actions) + K
-        Firm_Probabilities = Investment_Actions/MarketInnovation
-
-        LeaderBest = np.array(Leader_Best)
-        FollowerBest = np.array(Follower_Best)
-
-        ValueExpectations = (1-learning_rate)*Profit + learning_rate*delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest)
-    elif config.firms == 1:
-        LeaderBest = np.array(Leader_Best)
-        #In monopoly firm is guaranteed to remain leader
-        ValueExpectations = (1-learning_rate)*Profit + learning_rate*delta*LeaderBest
-
-    #Update Q-Matrices given state and action choices
-    for i, f in enumerate(Firms, start=0):
-        f.UpdateQ(CurrentState,(Prices[i],Investments[i]),ValueExpectations[i])
+        #Update Q-Matrices given state and action choices
+        Firm_Stationarity = []
+        for i, f in enumerate(Firms, start=0):
+            f.UpdateQ(CurrentState,(Prices[i],Investments[i]),ValueExpectations[i])
+            Firm_Stationarity.append(f.Stationarity_Counter)
 
 
-    #Draw next innovation leader - only applies when 2+ firms
-    if config.firms >1:
-        NoWinnerProb = 1- np.sum(Firm_Probabilities)
-        probabilities = np.append(Firm_Probabilities, NoWinnerProb)
 
-        outcomes = list(range(0, firms)) + [None]
-    
-        winner = random.choices(outcomes, weights=probabilities, k=1)[0]
-    
-        if winner != None:
-            Industry_m+=1
-            for i, f in enumerate(Firms, start=0):
-                f.Leader = 0
-                if int(winner) == i:
-                    f.Leader = 1
-    #Save profits for graphing
-    if 1 in Leadership: #no leader on first round(and maybe more if no one wins innovation)
-        Profits_log[round] = np.append(Profit,Leadership.index(1))
-        Price_log[round] = np.append(Price_Actions,Leadership.index(1))
-        Invest_log[round] = np.append(Investment_Actions,Leadership.index(1))
-    else:
-        Profits_log[round] = np.append(Profit,None)
-        Price_log[round] = np.append(Price_Actions,None)
-        Invest_log[round] = np.append(Investment_Actions,None)
+        #Draw next innovation leader - only applies when 2+ firms
+        if config.firms >1:
+            NoWinnerProb = 1- np.sum(Firm_Probabilities)
+            probabilities = np.append(Firm_Probabilities, NoWinnerProb)
+
+            outcomes = list(range(0, firms)) + [None]
+        
+            winner = random.choices(outcomes, weights=probabilities, k=1)[0]
+        
+            if winner != None:
+                Industry_m+=1
+                for i, f in enumerate(Firms, start=0):
+                    f.Leader = 0
+                    if int(winner) == i:
+                        f.Leader = 1
+        #Save profits for graphing
+        if 1 in Leadership: #no leader on first round(and maybe more if no one wins innovation)
+            Profits_log[round] = np.append(Profit,Leadership.index(1))
+            Price_log[round] = np.append(Price_Actions,Leadership.index(1))
+            Invest_log[round] = np.append(Investment_Actions,Leadership.index(1))
+        else:
+            Profits_log[round] = np.append(Profit,None)
+            Price_log[round] = np.append(Price_Actions,None)
+            Invest_log[round] = np.append(Investment_Actions,None)
+        pbar.n = int(min(Firm_Stationarity))
+        pbar.refresh()
+        round+=1
 
 #Process results
 plot_start = time.perf_counter()
@@ -141,10 +153,11 @@ plot_visit_counts_3d(Firms)
 plot_elapsed = time.perf_counter() - plot_start
 
 print(f"Plotting completed in {plot_elapsed:.2f} seconds")
+print(f"Rounds: {round}")
 
 for i, f in enumerate(Firms):
     config.Details[f'Firm{i+1} Visits'] = {"Min":np.min(f.visit_counts),"Max":np.max(f.visit_counts),"Avg":np.mean(f.visit_counts)}
-   
+config.Details['Rounds'] = round
 class NumpyEncoder(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, np.integer):
