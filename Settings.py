@@ -13,7 +13,7 @@ DemandFn = Callable[[np.ndarray, np.ndarray], np.ndarray]
 class Config:
     #Market Characteristics
     lags: int = 1
-    firms: int = 1
+    firms: int = 2
     mrktsz: int = 1000
     gamelen: int = 10**6
     #Demand features

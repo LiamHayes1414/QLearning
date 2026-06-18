@@ -5,7 +5,7 @@ from Settings import Config
 import numpy as np
 import time
 from tqdm import tqdm
-from Visualize import plotting,plot_visit_counts_3d
+from Visualize import plotting, plot_visit_counts_3d, leaderplots
 import json
 import random
 
@@ -43,9 +43,9 @@ for lag in range(lags):
     State_log.append([1]*firms)
 
 Industry_m = 1
-Profits_log = np.empty((GameLen, firms))
-Price_log = np.empty((GameLen, firms))
-Invest_log = np.empty((GameLen, firms))
+Profits_log = np.empty((GameLen, firms+1))
+Price_log = np.empty((GameLen, firms+1))
+Invest_log = np.empty((GameLen, firms+1))
 
 for round in tqdm(range(GameLen)):
 
@@ -123,15 +123,20 @@ for round in tqdm(range(GameLen)):
                 f.Leader = 0
                 if int(winner) == i:
                     f.Leader = 1
-
-    #Save profits for graphing 
-    Profits_log[round] = Profit
-    Price_log[round] = Price_Actions
-    Invest_log[round] = Investment_Actions
+    #Save profits for graphing
+    if 1 in Leadership: #no leader on first round(and maybe more if no one wins innovation)
+        Profits_log[round] = np.append(Profit,Leadership.index(1))
+        Price_log[round] = np.append(Price_Actions,Leadership.index(1))
+        Invest_log[round] = np.append(Investment_Actions,Leadership.index(1))
+    else:
+        Profits_log[round] = np.append(Profit,None)
+        Price_log[round] = np.append(Price_Actions,None)
+        Invest_log[round] = np.append(Investment_Actions,None)
 
 #Process results
 plot_start = time.perf_counter()
 plotting(Profits_log, Price_log, Invest_log,config)
+leaderplots(Profits_log, Price_log, Invest_log, config)
 plot_visit_counts_3d(Firms)
 plot_elapsed = time.perf_counter() - plot_start
 

@@ -5,6 +5,123 @@ from matplotlib.ticker import MaxNLocator
 from matplotlib.patches import Patch
 
 
+def _downsample_series(turns, matrices, max_plot_points):
+    total_points = len(turns)
+    if total_points == 0:
+        return np.asarray(turns), [np.asarray(matrix) for matrix in matrices]
+
+    downsample_step = max(1, int(np.ceil(total_points / max_plot_points)))
+    if downsample_step == 1:
+        return np.asarray(turns), matrices
+
+    plot_turns = []
+    plot_matrices = [[] for _ in matrices]
+
+    for start in range(0, total_points, downsample_step):
+        end = min(start + downsample_step, total_points)
+        plot_turns.append(turns[end - 1])
+
+        for matrix_index, matrix in enumerate(matrices):
+            plot_matrices[matrix_index].append(matrix[start:end].mean(axis=0))
+
+    return np.asarray(plot_turns), [np.asarray(plot_matrix) for plot_matrix in plot_matrices]
+
+
+def _add_equilibrium_lines(ax, title, config, label_x):
+    monopoly_colour = '#C62828'
+    leader_colour = '#1565C0'
+    follower_colour = '#2E7D32'
+    width = 1.2
+    size = 8
+
+    if title.lower() == "prices":
+        reference_values = [("*Monopoly", config.MonopolyP, monopoly_colour)]
+        if config.firms > 1:
+            reference_values.extend([
+                ("*Leader", config.LeaderP, leader_colour),
+                ("*Follower", config.FollowerP, follower_colour),
+            ])
+    elif title.lower() == "investments":
+        reference_values = [("*Monopoly", config.MonopolyX, monopoly_colour)]
+        if config.firms > 1:
+            reference_values.extend([
+                ("*Leader", config.LeaderX, leader_colour),
+                ("*Follower", config.FollowerX, follower_colour),
+            ])
+    elif title.lower() == "profits":
+        reference_values = [("*Monopoly", config.MonopolyProfit, monopoly_colour)]
+        if config.firms > 1:
+            reference_values.extend([
+                ("*Leader", config.LeaderProfit, leader_colour),
+                ("*Follower", config.FollowerProfit, follower_colour),
+            ])
+    else:
+        reference_values = []
+
+    for label, y_value, colour in reference_values:
+        ax.axhline(y=y_value, color=colour, linestyle='-', linewidth=width)
+        ax.text(
+            x=label_x,
+            y=y_value,
+            s=label,
+            color=colour,
+            va='center',
+            ha='left',
+            fontsize=size,
+            bbox=dict(
+                facecolor='white',
+                boxstyle='round,pad=0.2'
+            )
+        )
+
+
+def _plot_metric_panels(
+    axes,
+    logs,
+    plot_turns,
+    plot_matrices,
+    config,
+    turns,
+    leader_title=None,
+):
+    num_firms = config.firms
+    smooth_window = max(1, len(plot_turns) // 150) if len(plot_turns) else 1
+    label_x = plot_turns[min(smooth_window, len(plot_turns) - 1)] if len(plot_turns) else 0
+    firm_colors = plt.cm.tab10.colors
+
+    for ax, (title, ylabel, _), plot_matrix in zip(axes[:3], logs, plot_matrices):
+        if len(plot_turns) and smooth_window > 1:
+            kernel = np.ones(smooth_window) / smooth_window
+            smooth_turns = plot_turns[smooth_window - 1:]
+            for firm_index in range(num_firms):
+                    smooth_firm = np.convolve(plot_matrix[:, firm_index], kernel, mode='valid')
+                    ax.plot(
+                        smooth_turns,
+                        smooth_firm,
+                        linewidth=1,
+                        color=firm_colors[firm_index % len(firm_colors)],
+                        label=f'Firm {firm_index + 1} trend ({smooth_window})'
+                    )
+        elif len(plot_turns):
+            for firm_index in range(num_firms):
+                    ax.plot(
+                        plot_turns,
+                        plot_matrix[:, firm_index],
+                        linewidth=1,
+                        color=firm_colors[firm_index % len(firm_colors)],
+                        label=f'Firm {firm_index + 1}'
+                    )
+
+        ax.set_ylabel(ylabel)
+        title_text = title if leader_title is None else f"{title} - {leader_title}"
+        ax.set_title(title_text)
+        _add_equilibrium_lines(ax, title, config, label_x)
+        ax.grid(True, alpha=0.25)
+        ax.margins(x=0)
+
+    axes[-1].set_xlabel('Turns')
+    axes[-1].xaxis.set_major_locator(MaxNLocator(nbins=10, integer=True))
+
 
 def plotting(
     profits_log,
@@ -207,6 +324,106 @@ def plotting(
 
     # Place a single legend below all three plots.
     fig.legend(handles, labels, loc='lower center', bbox_to_anchor=(0.5, 0.01), ncol=len(labels))
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        save_path.parent.mkdir(parents=True, exist_ok=True)
+        fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+
+    if show:
+        plt.show()
+    else:
+        plt.close(fig)
+
+    return save_path
+
+
+def leaderplots(
+    profits_log,
+    price_log,
+    invest_log,
+    config,
+    save_path="TrainingResults/leader_plots.png",
+    show=False,
+    fig_size=None,
+    dpi=300,
+    max_plot_points=20000,
+):
+    logs = [
+        ("Profits", "Profit", profits_log),
+        ("Prices", "Price", price_log),
+        ("Investments", "Investment", invest_log),
+    ]
+    num_firms = config.firms
+    matrices = []
+    for _, _, log in logs:
+        matrix = np.asarray(log)
+        matrices.append(matrix)
+
+    leader_column = matrices[0][:, num_firms]
+    all_turns = np.arange(len(leader_column))
+
+    if fig_size is None:
+        fig_size = (max(16, 8 * num_firms), 11)
+
+    fig, axes = plt.subplots(
+        3,
+        num_firms,
+        figsize=fig_size,
+        sharex='col',
+        gridspec_kw={'height_ratios': [1, 1, 1]}
+    )
+
+    if num_firms == 1:
+        axes = axes.reshape(3, 1)
+
+    for leader_index in range(num_firms):
+        leader_mask = leader_column == leader_index
+        leader_turns = all_turns[leader_mask]
+        leader_matrices = [
+            matrix[leader_mask, :num_firms]
+            for matrix in matrices
+        ]
+
+        plot_turns, plot_matrices = _downsample_series(
+            leader_turns,
+            leader_matrices,
+            max_plot_points
+        )
+
+        _plot_metric_panels(
+            axes[:, leader_index],
+            logs,
+            plot_turns,
+            plot_matrices,
+            config,
+            all_turns,
+            leader_title=f"Firm {leader_index + 1} Leader",
+        )
+
+        if len(leader_turns) == 0:
+            axes[0, leader_index].text(
+                0.5,
+                0.5,
+                f"No rounds where Firm {leader_index + 1} was leader",
+                transform=axes[0, leader_index].transAxes,
+                ha="center",
+                va="center",
+            )
+
+        if leader_index > 0:
+            for row_index in range(3):
+                axes[row_index, leader_index].set_ylabel("")
+
+    handles, labels = axes[0, 0].get_legend_handles_labels()
+    if handles:
+        fig.legend(
+            handles,
+            labels,
+            loc='lower center',
+            bbox_to_anchor=(0.5, 0.01),
+            ncol=len(labels)
+        )
 
     if save_path is not None:
         save_path = Path(save_path)
