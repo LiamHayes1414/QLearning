@@ -1,4 +1,6 @@
 import numpy as np
+import itertools
+
 
 class Firm:
 
@@ -18,17 +20,12 @@ class Firm:
         self.price_options = self.config.price_options
         self.possible_actions = Possible_Actions
 
-        self.Leader = 0 #binary indicator if firm is leader or not
-  
+        self.Leader = 1 if self.config.firms == 1 else 0 #binary indicator if firm is leader or not (initialized at 1 if monopoly)
 
     def decodelog(self,log):
-        F1_old,F2_old = log[0] # two periods ago
-        #F1_new,F2_new = log[1] #last period
+        flat_list = list(itertools.chain.from_iterable(log))
 
-        #raw_prices = [F1_new, F1_old, F2_new, F2_old]
-        raw_prices = [F1_old,F2_old]
-
-        price_indices = [int(np.searchsorted(self.price_options, p)) for p in raw_prices]
+        price_indices = [int(np.searchsorted(self.price_options, p)) for p in flat_list]
 
         return price_indices
 
@@ -38,9 +35,12 @@ class Firm:
         price_indices = self.decodelog(log)
 
         #add position indicator (currently leader or follower)
-        price_indices.append(int(self.Leader))
-        
-
+        if self.config.firms>1:
+            price_indices.append(int(self.Leader))
+        elif self.config.firms == 1:
+            #only 1 leadership option which is at index 0
+            price_indices.append(0)
+    
         state_index = tuple(price_indices)
         state_action_values = self.Q_matrix[state_index]
         state_action_visits = self.visit_counts[state_index]
@@ -55,7 +55,6 @@ class Firm:
             max_value = np.max(state_action_values)
             max_indices = np.flatnonzero(state_action_values == max_value)
             action_index = np.random.choice(max_indices)
-
         price, invest = self.possible_actions[action_index]
 
         return price, invest
@@ -64,26 +63,29 @@ class Firm:
         price_indices = self.decodelog(log)
 
         #Generate both states if leader or follower next round
-        LeaderState =  price_indices + [int(1)]
-        FollowerState = price_indices + [int(0)]
-
+        LeaderState =  price_indices + [0 if self.config.firms == 1 else 1] #if monoply leader index at 0 (only 1 option)
         Leader_index = tuple(LeaderState)
-        Follower_index = tuple(FollowerState)
-
         Leader_values = self.Q_matrix[Leader_index]
-        Follower_values = self.Q_matrix[Follower_index]
-
         Leader_best = np.max(Leader_values)
-        Follower_best = np.max(Follower_values)
 
-        return Leader_best,Follower_best
+        if self.config.firms>1:
+            #follower only exists if 2+ firms
+            FollowerState = price_indices + [0]
+            Follower_index = tuple(FollowerState)
+            Follower_values = self.Q_matrix[Follower_index]
+            Follower_best = np.max(Follower_values)
+
+            return Leader_best,Follower_best
+        
+        return Leader_best
     
     def UpdateQ(self,log,actions:tuple,Value):
 
         price_indices = self.decodelog(log)
 
         #add position indicator (currently leader or follower)
-        price_indices.append(int(self.Leader))
+        price_indices.append(0 if self.config.firms == 1 else self.Leader) #for monopoly leader index is 0 even though leader==1
+    
 
         state_index = tuple(price_indices)
         action_index = self.possible_actions.index(actions)

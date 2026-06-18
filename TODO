@@ -1,6 +1,4 @@
 Add tracking code for when a firm is leader and follower to see how they price and invest in both positions
 Define convergence indicator for training loop
-Make code capable of testing over various input variables in settings.py file (log optimality over many different inputs)
 Calculate consumer surplus 
 See if i get same results as calvano when i remove R&D spend
-See if monopoly gets same results as theory 

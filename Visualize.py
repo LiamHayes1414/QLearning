@@ -23,6 +23,7 @@ def plotting(
         ("Prices", "Price", price_log),
         ("Investments", "Investment", invest_log),
     ]
+    num_firms = config.firms
 
     matrices = []
     for title, _, log in logs:
@@ -55,18 +56,22 @@ def plotting(
 
 
     fig, axes = plt.subplots(4, 1, figsize=fig_size, sharex=True,gridspec_kw={'height_ratios': [1, 1, 1, 0.25]})
-    firm_colors = ["tab:blue", "tab:orange"]
+    firm_colors = plt.cm.tab10.colors
 
     for ax, (title, ylabel, _), plot_matrix in zip(axes[:3], logs, plot_matrices):
 
         if smooth_window > 1:
             kernel = np.ones(smooth_window) / smooth_window
-            smooth_firm_1 = np.convolve(plot_matrix[:, 0], kernel, mode='valid')
-            smooth_firm_2 = np.convolve(plot_matrix[:, 1], kernel, mode='valid')
             smooth_turns = plot_turns[smooth_window - 1:]
-
-            ax.plot(smooth_turns, smooth_firm_1, linewidth=1, color=firm_colors[0], label=f'Firm 1 trend ({smooth_window})')
-            ax.plot(smooth_turns, smooth_firm_2, linewidth=1, color=firm_colors[1], label=f'Firm 2 trend ({smooth_window})')
+            for firm_index in range(num_firms):
+                    smooth_firm = np.convolve(plot_matrix[:, firm_index], kernel, mode='valid')
+                    ax.plot(
+                        smooth_turns,
+                        smooth_firm,
+                        linewidth=1,
+                        color=firm_colors[firm_index % len(firm_colors)],
+                        label=f'Firm {firm_index + 1} trend ({smooth_window})'
+                    )
 
         ax.set_ylabel(ylabel)
         ax.set_title(title)
@@ -89,26 +94,26 @@ def plotting(
                     )
             
        
-
-            #Leader price
-            leader_y = config.LeaderP 
-            ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
-            ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
-                    bbox=dict(
-                        facecolor='white',    
-                        boxstyle='round,pad=0.2' 
-                    )
-                    )
-
-            #Follower price
-            follower_y = config.FollowerP 
-            ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
-            ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+            if config.firms >1:
+                #Leader price
+                leader_y = config.LeaderP 
+                ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
                         bbox=dict(
                             facecolor='white',    
                             boxstyle='round,pad=0.2' 
                         )
                         )
+
+                #Follower price
+                follower_y = config.FollowerP 
+                ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+                            bbox=dict(
+                                facecolor='white',    
+                                boxstyle='round,pad=0.2' 
+                            )
+                            )
                 
         elif title.lower() == "investments":
             width = 1.2
@@ -124,26 +129,26 @@ def plotting(
                     )
             
       
+            if config.firms >1:
+                #Leader price
+                leader_y = config.LeaderX 
+                ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
 
-            #Leader price
-            leader_y = config.LeaderX 
-            ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
-            ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
-                    bbox=dict(
-                        facecolor='white',    
-                        boxstyle='round,pad=0.2' 
-                    )
-                    )
-
-            #Follower price
-            follower_y = config.FollowerX
-            ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
-            ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
-                    bbox=dict(
-                        facecolor='white',    
-                        boxstyle='round,pad=0.2' 
-                    )
-                    )
+                #Follower price
+                follower_y = config.FollowerX
+                ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
             
         elif title.lower() == "profits":
             width = 1.2
@@ -159,26 +164,26 @@ def plotting(
                     )
             
             
-
-            #Leader price
-            leader_y = config.LeaderProfit 
-            ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
-            ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
-                    bbox=dict(
-                        facecolor='white',    
-                        boxstyle='round,pad=0.2' 
-                    )
-                    )
-            
-            #Follower price
-            follower_y = config.FollowerProfit
-            ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
-            ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
-                    bbox=dict(
-                        facecolor='white',    
-                        boxstyle='round,pad=0.2' 
-                    )
-                    )
+            if config.firms >1:
+                #Leader price
+                leader_y = config.LeaderProfit 
+                ax.axhline(y=leader_y, color=leader_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=leader_y,s='*Leader',color=leader_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
+                
+                #Follower price
+                follower_y = config.FollowerProfit
+                ax.axhline(y=follower_y, color=follower_colour, linestyle='-', linewidth=width)
+                ax.text(x=label_x,y=follower_y,s='*Follower',color=follower_colour,va='center',ha='left',fontsize=size,
+                        bbox=dict(
+                            facecolor='white',    
+                            boxstyle='round,pad=0.2' 
+                        )
+                        )
 
 
         ax.grid(True, alpha=0.25)
@@ -189,7 +194,7 @@ def plotting(
 
     # Plot the simple function
     ax4.plot(turns, y_vals, color='purple')
-    ax4.set_title(r'$\text{Exploration Probability } \epsilon = MAX(\left(-\frac{0.5}{\text{GameLen}}\right) \times \text{Round} + 1$, 0)')
+    ax4.set_title(r'$\text{Exploration Probability } \epsilon = MAX(\left(-\frac{0.75}{\text{GameLen}}\right) \times \text{Round} + 1$, 0)')
     ax4.set_ylim(-0.1, 1.1)
     ax4.grid(True, alpha=0.25)
     ax4.margins(x=0)
@@ -217,18 +222,13 @@ def plotting(
 
 
 def plot_visit_counts_3d(
-    firm1_counts,
-    firm2_counts,
+    firms,
     save_path="TrainingResults/visit_counts_3d.png",
     show=False,
     fig_size=(16, 8.125),
     dpi=300,
 ):
-    count_matrices = [
-        ("Firm 1 state-action decisions", np.asarray(firm1_counts)),
-        ("Firm 2 state-action decisions", np.asarray(firm2_counts)),
-    ]
-
+    
     fig = plt.figure(figsize=fig_size,constrained_layout=True)
     fig.set_constrained_layout_pads(
         w_pad=0.08,
@@ -237,41 +237,34 @@ def plot_visit_counts_3d(
         hspace=0.05
     )
 
+    #store values for each firm dynamically
+    count_matrices = []
+    axes = []
+    for i,f in enumerate(firms):
+        Firm = (f"Firm {i+1} state-action decisions", np.asarray(f.visit_counts))
+        count_matrices.append(Firm)
 
-    axes = [
-        fig.add_subplot(1, 2, 1, projection="3d"),
-        fig.add_subplot(1, 2, 2, projection="3d"),
-    ]
-
+        axes.append(fig.add_subplot(1, len(firms), i+1, projection="3d"))
+   
     for ax, (title, counts) in zip(axes, count_matrices):
-        if counts.ndim < 2:
-            raise ValueError("Visit count matrices must include at least one state dimension and one action dimension")
-
         action_count = counts.shape[-1]
         leader_axis = counts.ndim - 2
-        if counts.shape[leader_axis] < 2:
-            raise ValueError("Visit count matrices must have leader as the last state dimension with values 0 and 1")
-
-
-   
-  
-
         action_indices = np.arange(action_count)
         state_offset = 0
         surfaces = []
 
-        for leader_value, cmap in [(1, "viridis"), (0, "plasma")]:
+        if counts.shape[leader_axis] == 1:
+            position_plots = [(0, "viridis", "Monopoly")]
+        else:
+            position_plots = [(1, "viridis", "Leader"), (0, "plasma", "Follower")]
+
+        for leader_value, cmap, Position_text in position_plots:
             leader_counts = np.take(counts, leader_value, axis=leader_axis)
             plot_counts = leader_counts.reshape(-1, action_count)
             state_indices = np.arange(state_offset, state_offset + len(plot_counts))
             state_grid, action_grid = np.meshgrid(state_indices, action_indices)
             visit_grid = plot_counts.T
             visit_grid_from_floor = visit_grid
-
-            if leader_value == 1:
-                Position_text = "Leader"
-            else:
-                Position_text = "Follower"
 
             if np.any(visit_grid):
                 surface = ax.plot_surface(
@@ -300,20 +293,21 @@ def plot_visit_counts_3d(
             state_offset += len(plot_counts)
 
       
-        legend_handles = [
-            Patch(facecolor=plt.cm.viridis(0.7), label="Leader"),
-            Patch(facecolor=plt.cm.plasma(0.7), label="Follower"),
-        ]
-
+        if counts.shape[leader_axis] == 1:
+            legend_handles = [
+                Patch(facecolor=plt.cm.viridis(0.7), label="Monopoly")
+            ]
+        else:
+            legend_handles = [
+                Patch(facecolor=plt.cm.viridis(0.7), label="Leader"),
+                Patch(facecolor=plt.cm.plasma(0.7), label="Follower"),
+            ]
         fig.legend(
             handles=legend_handles,
             loc="lower center",
             ncol=2,
             bbox_to_anchor=(0.5, 0.02)
         )
-
-
-
 
         ax.set_title(title)
         ax.set_xlabel("Grouped flattened state index")
