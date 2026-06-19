@@ -44,12 +44,25 @@ for lag in range(lags):
     State_log.append([1]*firms)
 
 Industry_m = 1
-Profits_log = np.empty((GameCap, firms+1))
-Price_log = np.empty((GameCap, firms+1))
-Invest_log = np.empty((GameCap, firms+1))
+#initialize memory (for speed up)
+Profits_log = np.full((GameCap, firms + 1), np.nan)
+Price_log = np.full((GameCap, firms + 1), np.nan)
+Invest_log = np.full((GameCap, firms + 1), np.nan)
+
 round = 0
 Firm_Stationarity = [0]
 Stationarity_Target = 100000
+training_start = time.perf_counter()
+
+def format_eta(seconds):
+    if seconds < 3600:
+        return f"{int(seconds // 60):02d}:{int(seconds % 60):02d}"
+
+    hours = int(seconds // 3600)
+    mins = int((seconds % 3600) // 60)
+    secs = int(seconds % 60)
+    return f"{hours}:{mins:02d}:{secs:02d}"
+
 with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
     while min(Firm_Stationarity) < Stationarity_Target:
         if round == GameCap:
@@ -141,9 +154,29 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
             Profits_log[round] = np.append(Profit,None)
             Price_log[round] = np.append(Price_Actions,None)
             Invest_log[round] = np.append(Investment_Actions,None)
-        pbar.n = int(min(Firm_Stationarity))
-        pbar.refresh()
+
+        #Progress bar - only updates every X rounds
+        if round % 20000 == 0:
+            completed_rounds = round + 1
+            rounds_left_in_exp = max(GameLen - completed_rounds, 0)
+            elapsed = time.perf_counter() - training_start
+            rounds_per_second = completed_rounds / elapsed if elapsed > 0 else 0
+
+            if rounds_left_in_exp > 0 and rounds_per_second > 0:
+                # Seconds remaining until epsilon finishes decaying to zero.
+                seconds_left = rounds_left_in_exp / rounds_per_second
+                exp_eta = format_eta(seconds_left)
+            else:
+                exp_eta = "Done"
+            pbar.n = int(min(Firm_Stationarity))
+            pbar.set_postfix(rounds=f"{completed_rounds / 1e6:.2f}M/{GameLen / 1e6:.2f}M",Exp_ETA=exp_eta)
+            pbar.refresh()
         round+=1
+
+#Clean Memory logs
+Profits_log = Profits_log[~np.isnan(Profits_log).any(axis=1),:]
+Price_log = Price_log[~np.isnan(Price_log).any(axis=1),:]
+Invest_log = Invest_log[~np.isnan(Invest_log).any(axis=1),:]
 
 #Process results
 plot_start = time.perf_counter()

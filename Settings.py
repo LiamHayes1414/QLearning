@@ -15,8 +15,8 @@ class Config:
     lags: int = 1
     firms: int = 2
     mrktsz: int = 1000
-    explorationlen: int = 10**6
-    caplen:int = 10**7
+    explorationlen: int = 10**7
+    caplen:int = 10**8
     #Demand features
     mc: int = 1
     a: float = 0.1
