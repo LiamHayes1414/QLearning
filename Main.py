@@ -5,9 +5,10 @@ from Settings import Config
 import numpy as np
 import time
 from tqdm import tqdm
-from Visualize import plotting, plot_visit_counts_3d, leaderplots
+from Visualize import plotting, plot_visit_counts_3d, leaderplots,strategy
 import json
 import random
+from Helper import format_eta,NumpyEncoder
 
 #load settings
 config = Config()
@@ -18,7 +19,7 @@ positions = config.position_options
 investments = config.invest_options
 Demand = config.demand
 mc = config.mc
-GameLen = config.explorationlen
+ExpLen = config.explorationlen
 GameCap = config.caplen
 K = config.K
 delta = config.delta
@@ -35,6 +36,9 @@ Possible_Actions = list(product(prices, investments))
 Firms = []
 for f in range(firms):
     Firm = firm(Possible_States,Possible_Actions,config)
+    #assign a leader if no r&d case
+    if config.investments_count == 1 and f==0:
+        Firm.Leader=1
     Firms.append(Firm)
 
 #State log
@@ -45,23 +49,20 @@ for lag in range(lags):
 
 Industry_m = 1
 #initialize memory (for speed up)
-Profits_log = np.full((GameCap, firms + 1), np.nan)
-Price_log = np.full((GameCap, firms + 1), np.nan)
-Invest_log = np.full((GameCap, firms + 1), np.nan)
+Downsample_len = 100
+    #fixed experimentation log
+Profits_explog = []
+Price_explog = []
+Invest_explog = []
+    #stationarity log
+Profits_statlog = []
+Price_statlog = []
+Invest_statlog = []
 
 round = 0
 Firm_Stationarity = [0]
-Stationarity_Target = 100000
+Stationarity_Target = 250000
 training_start = time.perf_counter()
-
-def format_eta(seconds):
-    if seconds < 3600:
-        return f"{int(seconds // 60):02d}:{int(seconds % 60):02d}"
-
-    hours = int(seconds // 3600)
-    mins = int((seconds % 3600) // 60)
-    secs = int(seconds % 60)
-    return f"{hours}:{mins:02d}:{secs:02d}"
 
 with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
     while min(Firm_Stationarity) < Stationarity_Target:
@@ -128,8 +129,6 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
             f.UpdateQ(CurrentState,(Prices[i],Investments[i]),ValueExpectations[i])
             Firm_Stationarity.append(f.Stationarity_Counter)
 
-
-
         #Draw next innovation leader - only applies when 2+ firms
         if config.firms >1:
             NoWinnerProb = 1- np.sum(Firm_Probabilities)
@@ -146,19 +145,37 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
                     if int(winner) == i:
                         f.Leader = 1
         #Save profits for graphing
-        if 1 in Leadership: #no leader on first round(and maybe more if no one wins innovation)
-            Profits_log[round] = np.append(Profit,Leadership.index(1))
-            Price_log[round] = np.append(Price_Actions,Leadership.index(1))
-            Invest_log[round] = np.append(Investment_Actions,Leadership.index(1))
-        else:
-            Profits_log[round] = np.append(Profit,None)
-            Price_log[round] = np.append(Price_Actions,None)
-            Invest_log[round] = np.append(Investment_Actions,None)
+        if round % Downsample_len == 0: #downsample within exploration length
+            if 1 in Leadership: #no leader on first round(and maybe more if no one wins innovation)
+                Profits_explog.append(np.append(Profit,Leadership.index(1)))
+                Price_explog.append(np.append(Price_Actions,Leadership.index(1)))
+                Invest_explog.append(np.append(Investment_Actions,Leadership.index(1)))
+            else:
+                Profits_explog.append(np.append(Profit,None))
+                Price_explog.append(np.append(Price_Actions,None))
+                Invest_explog.append(np.append(Investment_Actions,None))
+
+        elif round>ExpLen: #experimentation is over
+            
+            Profits_statlog.append(np.append(Profit,Leadership.index(1)))
+            Price_statlog.append(np.append(Price_Actions,Leadership.index(1)))
+            Invest_statlog.append(np.append(Investment_Actions,Leadership.index(1)))
+
+            if min(Firm_Stationarity) == 0:
+                print("dumped")
+                #if Q matrix changes dump stat log
+                Profits_statlog = []
+                Price_statlog = []
+                Invest_statlog = []
+
+                print(Price_statlog)
+
+
 
         #Progress bar - only updates every X rounds
         if round % 20000 == 0:
             completed_rounds = round + 1
-            rounds_left_in_exp = max(GameLen - completed_rounds, 0)
+            rounds_left_in_exp = max(ExpLen - completed_rounds, 0)
             elapsed = time.perf_counter() - training_start
             rounds_per_second = completed_rounds / elapsed if elapsed > 0 else 0
 
@@ -169,37 +186,40 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
             else:
                 exp_eta = "Done"
             pbar.n = int(min(Firm_Stationarity))
-            pbar.set_postfix(rounds=f"{completed_rounds / 1e6:.2f}M/{GameLen / 1e6:.2f}M",Exp_ETA=exp_eta)
+            pbar.set_postfix(rounds=f"{completed_rounds / 1e6:.2f}M/{ExpLen / 1e6:.2f}M",Exp_ETA=exp_eta)
             pbar.refresh()
         round+=1
 
-#Clean Memory logs
-Profits_log = Profits_log[~np.isnan(Profits_log).any(axis=1),:]
-Price_log = Price_log[~np.isnan(Price_log).any(axis=1),:]
-Invest_log = Invest_log[~np.isnan(Invest_log).any(axis=1),:]
-
 #Process results
 plot_start = time.perf_counter()
-plotting(Profits_log, Price_log, Invest_log,config)
-leaderplots(Profits_log, Price_log, Invest_log, config)
+plotting((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog),config,Downsample_len)
+if config.investments_count>1:leaderplots((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog), config, Downsample_len)
 plot_visit_counts_3d(Firms)
+price_pattern,invest_pattern = strategy(Price_statlog, Invest_statlog, config)
 plot_elapsed = time.perf_counter() - plot_start
 
 print(f"Plotting completed in {plot_elapsed:.2f} seconds")
 print(f"Rounds: {round}")
 
 for i, f in enumerate(Firms):
-    config.Details[f'Firm{i+1} Visits'] = {"Min":np.min(f.visit_counts),"Max":np.max(f.visit_counts),"Avg":np.mean(f.visit_counts)}
+    zeros_count = np.sum(f.visit_counts == 0)
+    total_size = f.visit_counts.size
+    config.Details[f'Firm{i+1} Visits'] = {
+        "Min_F":np.min(f.visit_counts[..., 0, :]),
+        "Max_F":np.max(f.visit_counts[..., 0, :]),
+        "Avg_F":np.mean(f.visit_counts[..., 0, :]),
+        'Pct_Missed_F':f'{np.mean(f.visit_counts[..., 0, :] == 0) * 100}%'
+        }
+    if firms>1:
+        config.Details[f'Firm{i+1} Visits']["Min_L"] = np.min(f.visit_counts[..., 1, :])
+        config.Details[f'Firm{i+1} Visits']["Max_L"] = np.max(f.visit_counts[..., 1, :])
+        config.Details[f'Firm{i+1} Visits']["Avg_L"] = np.mean(f.visit_counts[..., 1, :])
+        config.Details[f'Firm{i+1} Visits']['Pct_Missed_L'] = f'{np.mean(f.visit_counts[..., 1, :] == 0) * 100}%'
+
 config.Details['Rounds'] = round
-class NumpyEncoder(json.JSONEncoder):
-    def default(self, obj):
-        if isinstance(obj, np.integer):
-            return int(obj)
-        if isinstance(obj, np.floating):
-            return float(obj)
-        if isinstance(obj, np.ndarray):
-            return obj.tolist()
-        return super(NumpyEncoder, self).default(obj)
+config.Details['Final Prices'] = Price_Actions
+config.Details['Price Patterns'] = price_pattern
+config.Details['Invest Patterns'] = invest_pattern
     
 with open("TrainingResults/Details.json", "w") as json_file:
     json.dump(config.Details, json_file, indent=4, cls=NumpyEncoder)

@@ -15,8 +15,7 @@ class Config:
     lags: int = 1
     firms: int = 2
     mrktsz: int = 1000
-    explorationlen: int = 10**7
-    caplen:int = 10**8
+    caplen:int = 10**8 #hard cap at 100M iterations
     #Demand features
     mc: int = 1
     a: float = 0.1
@@ -25,13 +24,15 @@ class Config:
     K: float = 50  # Chance for no innovation to occur
     delta: float = 0.95
     #Learning parameters
-    epsilon_decay: float = -1/(explorationlen)
     learningrate = 0.25
     #State variables
     prices_count = 15
-    investments_count = 5
+    investments_count = 1
     price_interval_margin = 0.02
     investment_interval_margin = 0.1
+    #based on above values     _States_                      _actions_             visit each ~X times
+    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) *10
+    epsilon_decay: float = -1/(explorationlen)
 
     #Holder variables
     MonopolyP: float = None
@@ -157,14 +158,20 @@ class Config:
         elif self.firms == 1:
             self.invest_options = np.linspace(monopoly_investment,self.K*(1+self.investment_interval_margin),self.investments_count).tolist()
 
+        if self.investments_count == 1: self.invest_options = [0]
+
         """PROFITS_____________________________________________________________________________ """
         #using variables from investment calculatinos above,Rl,Rf
         D = ((1 + self.b) * math.exp(-self.a * monopoly_price)) + 1
         monopoly_profits = (((monopoly_price - self.mc)*((1+self.b)*math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - monopoly_investment
 
         if self.firms>1:
-            leader_profits = Rl - leader_investment
-            follower_profits = Rf - follower_investment
+            if self.investments_count == 1:
+                leader_profits = Rl
+                follower_profits = Rf
+            else:
+                leader_profits = Rl - leader_investment
+                follower_profits = Rf - follower_investment
         
             #save all info
             #Prices

@@ -1,7 +1,6 @@
 import numpy as np
 import itertools
 
-
 class Firm:
 
     def __init__(self,Possible_States,Possible_Actions,SettingsConfig):
@@ -97,7 +96,7 @@ class Firm:
         #Update visit count matrix
         self.visit_counts[state_index][action_index] += 1
 
-        if round(Prev_Val,2) == round(Value,2):
+        if Prev_Val == Value:
             self.Stationarity_Counter+=1
         else:
             self.Stationarity_Counter = 0
