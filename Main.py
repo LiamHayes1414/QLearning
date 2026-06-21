@@ -162,16 +162,11 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
             Invest_statlog.append(np.append(Investment_Actions,Leadership.index(1)))
 
             if min(Firm_Stationarity) == 0:
-                print("dumped")
                 #if Q matrix changes dump stat log
                 Profits_statlog = []
                 Price_statlog = []
                 Invest_statlog = []
-
-                print(Price_statlog)
-
-
-
+                
         #Progress bar - only updates every X rounds
         if round % 20000 == 0:
             completed_rounds = round + 1
