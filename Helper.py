@@ -1,6 +1,5 @@
 import json
 import numpy as np
-from tqdm import tqdm
 def format_eta(seconds):
     if seconds < 3600:
         return f"{int(seconds // 60):02d}:{int(seconds % 60):02d}"
@@ -39,15 +38,16 @@ def block_average_2d(matrix, block_size):
 def find_pattern(array:np.ndarray):
 
     target_cols = array.shape[1]-1
-    Search_range = 1000
+    total_rows = array.shape[0]
+    Search_range = min(1000, total_rows // 2)
     patterns = []
     for col in range(target_cols):
         col_data = array[:,col]
         detected_length = None
         # Only checking up to maximum search range
-        for lag in tqdm(range(1, Search_range)):
+        for lag in range(1, Search_range):
             #Compare array against shifts of itself
-            if np.array_equal(col_data[:-lag], col_data[lag:]):
+            if np.array_equal(col_data[-lag:], col_data[-2*lag : -lag]):
                 detected_length = lag
                 break
 

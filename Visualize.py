@@ -429,40 +429,47 @@ def plot_visit_counts_3d(
 
     return save_path
 
-def strategy(price_statlog, invest_statlog, config,save_path="TrainingResults/strategy.png",show=False,fig_size=(16, 8.125),dpi=300):
+def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/strategy.png", show=False, fig_size=(12, 9), dpi=300):
     print('Strategy')
 
-    fig = plt.figure(figsize=fig_size,constrained_layout=True)
-    
     prices = np.asarray(price_statlog)
     investments = np.asarray(invest_statlog)
     num_firms = config.firms
  
-    label_x = 0 #x-coordinate for labels
+    label_x = 0  # x-coordinate for labels
     firm_colors = plt.cm.tab10.colors
     
-    #Find pattern
+    # Find pattern
     Price_Patterns = find_pattern(prices)
     Investment_Patterns = find_pattern(investments)
 
-    if any(pattern is None for pattern in Price_Patterns): #No pattern found
+    print(Price_Patterns)
+
+    #Get Valid patterns so i can use max valid
+    valid_pattern_lengths = [len(p) for p in Price_Patterns if p is not None]
+    
+    if not valid_pattern_lengths:  # If the list is empty (any pattern was None or all None)
+        has_pattern = False
         View = 50
+        pattern_len = 0
     else:
-        pattern_len = len(Price_Patterns[0])
-        View = int(len(Price_Patterns[0]) * 3)
+        has_pattern = True
+        pattern_len = max(valid_pattern_lengths)
+        View = int(pattern_len * 3) + 1
 
     view_points = min(View, len(prices))
-
     turns = np.arange(view_points)
 
+    # Instantiate single canvas and axes cleanly
     fig, axes = plt.subplots(
         3,
         1,
-        figsize=(12, 9),
+        figsize=fig_size,
         sharex=True,
         gridspec_kw={'height_ratios': [1, 1, 0.6]}
     )
-    #grid at every integer
+    
+    # Grid ticks at every integer cycle step
     axes[0].set_xticks(turns) 
     logs = [
         ("Prices", prices, axes[0]),
@@ -478,17 +485,20 @@ def strategy(price_statlog, invest_statlog, config,save_path="TrainingResults/st
                 color=firm_colors[firm_index % len(firm_colors)],
                 label=f"Firm {firm_index + 1}"
             )
-            if any(pattern is None for pattern in Price_Patterns) == False:
-                ax.axvspan(0, pattern_len,facecolor='none', alpha=0.2,linewidth=2,linestyle='--',edgecolor = 'black')
-                ax.axvspan(pattern_len, pattern_len*2, facecolor='none',alpha=0.2,linewidth=2,linestyle='--',edgecolor = 'black')
-                ax.axvspan(pattern_len*2, pattern_len*3,facecolor='none', alpha=0.2,linewidth=2,linestyle='--',edgecolor = 'black')
+            
+            # Draw vertical pattern dividers if an overarching cycle length was isolated
+            if has_pattern:
+                ax.axvspan(0, pattern_len, facecolor='none', alpha=0.2, linewidth=2, linestyle='--', edgecolor='black')
+                ax.axvspan(pattern_len, pattern_len*2, facecolor='none', alpha=0.2, linewidth=2, linestyle='--', edgecolor='black')
+                ax.axvspan(pattern_len*2, pattern_len*3, facecolor='none', alpha=0.2, linewidth=2, linestyle='--', edgecolor='black')
 
         add_equilibrium_lines(ax, title, config, label_x)
         ax.set_title(title)
         ax.set_ylabel(title[:-1])
         ax.grid(True, alpha=0.25)
 
-    leader_values = prices[-view_points:, num_firms] +1
+    leader_values = prices[-view_points:, num_firms]
+    
     axes[2].scatter(
         turns,
         leader_values,
@@ -498,8 +508,13 @@ def strategy(price_statlog, invest_statlog, config,save_path="TrainingResults/st
     )
     axes[2].set_title("Leader Index")
     axes[2].set_ylabel("Leader")
-    axes[2].set_yticks(np.arange(num_firms))
-    axes[2].set_ylim(0, num_firms + 1)
+    
+    # Configure Y-axis ticks to account for both active firm numbers and no leader state (if ever happens)
+    y_ticks = np.append([-1], np.arange(num_firms))
+    y_labels = ["None"] + [f"Firm {i+1}" for i in range(num_firms)]
+    axes[2].set_yticks(y_ticks)
+    axes[2].set_yticklabels(y_labels)
+    axes[2].set_ylim(-1.5, num_firms - 0.5)
     axes[2].grid(True, alpha=0.25)
 
     axes[-1].set_xlabel("Stationary iteration")
@@ -516,4 +531,4 @@ def strategy(price_statlog, invest_statlog, config,save_path="TrainingResults/st
     else:
         plt.close(fig)
 
-    return Price_Patterns,Investment_Patterns
+    return Price_Patterns, Investment_Patterns

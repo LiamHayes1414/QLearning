@@ -116,8 +116,10 @@ class Config:
             margin = self.price_interval_margin *5
             self.price_options = np.linspace(monopoly_price * (1-margin),monopoly_price*(1+margin),self.prices_count).tolist()
 
-        
+        #Round options
+        self.price_options = np.round(self.price_options,2)
 
+        
         """INVESTMENT_____________________________________________________________________________ """
 
         if self.firms >1:
@@ -159,6 +161,9 @@ class Config:
             self.invest_options = np.linspace(monopoly_investment,self.K*(1+self.investment_interval_margin),self.investments_count).tolist()
 
         if self.investments_count == 1: self.invest_options = [0]
+
+        #Round options
+        self.invest_options = np.round(self.invest_options,2)
 
         """PROFITS_____________________________________________________________________________ """
         #using variables from investment calculatinos above,Rl,Rf
