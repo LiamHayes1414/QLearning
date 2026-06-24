@@ -1,4 +1,5 @@
 Calculate consumer surplus 
 See if i get same results as calvano when i remove R&D spend
 Build pipeline for testing various settings (a,b,firms etc) in one run 
-Why getting anomolies in strategy patterns
+Check state action consistency validation dict for stationarity (Does not seem to be working properly)
+Make arrow show in strategy graph when node points to itself

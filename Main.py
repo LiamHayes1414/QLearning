@@ -9,7 +9,6 @@ from Visualize import plotting, plot_visit_counts_3d, leaderplots,strategy
 import json
 import random
 from Helper import format_eta,NumpyEncoder
-import copy
 
 #load settings
 config = Config()
@@ -49,8 +48,7 @@ for lag in range(lags):
     State_log.append([prices[0]]*firms)
 
 Industry_m = 1
-#initialize memory (for speed up)
-Downsample_len = 100
+Downsample_len = 10
     #fixed experimentation log
 Profits_explog = []
 Price_explog = []
@@ -97,7 +95,7 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
         MarketShares = Demand(Price_Actions,Leader) * mrktsz #for readability
 
         Profit = (Price_Actions - mc)*MarketShares - Investment_Actions
-
+    
         #Calculate best possible outcomes next period 
         Leader_Best = []
         Follower_Best = []
@@ -138,10 +136,10 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
 
             FollowerBest = np.array(Follower_Best)#Only exists in non monopoly case
 
-            ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest))
+            ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit-Investment_Actions + delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest))
         elif firms == 1:
             #In monopoly firm is guaranteed to remain leader
-            ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*LeaderBest )
+            ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit-Investment_Actions + delta*LeaderBest )
 
         #Make sure i don't get any floating point errors
         cleaned_expectations = np.round(ValueExpectations, 4)
@@ -210,9 +208,9 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
 #Process results
 plot_start = time.perf_counter()
 plotting((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog),config,Downsample_len)
-if config.investments_count>1:leaderplots((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog), config, Downsample_len)
-plot_visit_counts_3d(Firms)
-price_pattern,invest_pattern = strategy(Price_statlog, Invest_statlog, config)
+if config.investments_count>1 and firms>1:leaderplots((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog), config, Downsample_len)
+#plot_visit_counts_3d(Firms)
+strategy(Price_statlog, Invest_statlog, config)
 plot_elapsed = time.perf_counter() - plot_start
 
 print(f"Plotting completed in {plot_elapsed:.2f} seconds")
@@ -248,10 +246,7 @@ for i, f in enumerate(Firms):
             print(f"State {state}: Tie detected! Max value {max_val} appears {max_count} times.")
 
 config.Details['Rounds'] = Round
-config.Details['Final Prices'] = Price_Actions
-config.Details['Price Patterns'] = price_pattern
-config.Details['Invest Patterns'] = invest_pattern
-    
+
 with open("TrainingResults/Details.json", "w") as json_file:
     json.dump(config.Details, json_file, indent=4, cls=NumpyEncoder)
    

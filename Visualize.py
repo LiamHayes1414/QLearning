@@ -4,13 +4,14 @@ from pathlib import Path
 from matplotlib.ticker import MaxNLocator
 from matplotlib.patches import Patch
 from Helper import block_average_2d,find_pattern
+import networkx as nx
+import matplotlib.patheffects as patheffects
 
-def add_equilibrium_lines(ax, title, config, label_x):
+
+def add_equilibrium_lines(ax, title, config, label_x,linewidth=1.2,size=8,borderWidth=0.5):
     monopoly_colour = '#C62828'
     leader_colour = '#1565C0'
     follower_colour = '#2E7D32'
-    width = 1.2
-    size = 8
 
     if title.lower() == "prices":
         reference_values = [("*Monopoly", config.MonopolyP, monopoly_colour)]
@@ -37,7 +38,7 @@ def add_equilibrium_lines(ax, title, config, label_x):
         reference_values = []
 
     for label, y_value, colour in reference_values:
-        ax.axhline(y=y_value, color=colour, linestyle='-', linewidth=width)
+        ax.axhline(y=y_value, color=colour, linestyle='-', linewidth=linewidth,zorder=1)
         ax.text(
             x=label_x,
             y=y_value,
@@ -46,9 +47,11 @@ def add_equilibrium_lines(ax, title, config, label_x):
             va='center',
             ha='left',
             fontsize=size,
+            zorder=3,
             bbox=dict(
                 facecolor='white',
-                boxstyle='round,pad=0.2'
+                boxstyle='round,pad=0.2',
+                linewidth=borderWidth,
             )
         )
 
@@ -150,16 +153,12 @@ def plotting(
 
     if save_path is not None:
         save_path = Path(save_path)
-        save_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
 
     if show:
         plt.show()
     else:
         plt.close(fig)
-
-    return save_path
-
 
 def leaderplots(
     profits_log,
@@ -307,7 +306,6 @@ def leaderplots(
 
     if save_path is not None:
         save_path = Path(save_path)
-        save_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
 
     if show:
@@ -316,7 +314,6 @@ def leaderplots(
         plt.close(fig)
 
     return save_path
-
 
 def plot_visit_counts_3d(
     firms,
@@ -364,7 +361,7 @@ def plot_visit_counts_3d(
             visit_grid = plot_counts.T
             
             #smooth matrix for faster plotting
-            block_size = 1 if counts.shape[leader_axis] == 1 else len(action_indices)//4
+            block_size = 1 if counts.shape[leader_axis] == 1 else len(action_indices)//2
             smooth_states = block_average_2d(state_grid, block_size)
             smooth_actions = block_average_2d(action_grid, block_size)
             smooth_visits = block_average_2d(visit_grid, block_size)
@@ -419,7 +416,6 @@ def plot_visit_counts_3d(
 
     if save_path is not None:
         save_path = Path(save_path)
-        save_path.parent.mkdir(parents=True, exist_ok=True)
         fig.savefig(save_path, dpi=dpi)
 
     if show:
@@ -429,7 +425,7 @@ def plot_visit_counts_3d(
 
     return save_path
 
-def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/strategy.png", show=False, fig_size=(12, 9), dpi=300):
+def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/strategy.png", show=False, dpi=300):
     print('Strategy')
 
     prices = np.asarray(price_statlog)
@@ -437,98 +433,246 @@ def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/s
     num_firms = config.firms
  
     label_x = 0  # x-coordinate for labels
-    firm_colors = plt.cm.tab10.colors
+    Titlesize = 16
+    LabelSize = 11
+    LabelWidth = 1
+    LabelLength = 5
     
     # Find pattern
-    Price_Patterns = find_pattern(prices)
-    Investment_Patterns = find_pattern(investments)
+    Price_Relationships,Price_States = find_pattern(prices)
+    Investment_Relationships,Investment_States = find_pattern(investments)
 
-    print(Price_Patterns)
+    # Create subplots
+    fig, axs = plt.subplots(3, 2, figsize=(16, 11), dpi=dpi,constrained_layout=True,gridspec_kw={'height_ratios': [1, 1, 0.25]})
+    ax_price_map = axs[0, 0]
+    ax_invest_map = axs[0, 1]
+    ax_price_actions = axs[1, 0]
+    ax_invest_actions = axs[1, 1]
+    ax_price_lead = axs[2,0]
+    ax_invest_lead = axs[2,1]
 
-    #Get Valid patterns so i can use max valid
-    valid_pattern_lengths = [len(p) for p in Price_Patterns if p is not None]
+    def strategy_map(relationships, ax, title, node_color):
+        ax.clear()
+        G = nx.DiGraph()
+        max_count = None
+        min_count = None
+        for source, target, count in relationships:
+            G.add_edge(source, target, weight=count)
+
+            #Update max count
+            if max_count:
+                if count>max_count:max_count = count
+            else:
+                max_count = count
+
+            #Update min count
+            if min_count:
+                if count<min_count:min_count = count
+            else:
+                min_count = count
+
+        if len(G.nodes()) > 1:
+            k = 100 / np.sqrt(len(G.nodes()))
+            pos = nx.spring_layout(G, k=k, iterations=1000, seed=42, scale=10)
+            #pos = nx.kamada_kawai_layout(G, scale=3)
+        else:
+            pos = nx.spring_layout(G, seed=42)
+        ax.set_title(title,fontsize=Titlesize)
+
+        #Identify the max outgoing edge for each node
+        max_edges = set()
+        for node in G.nodes():
+            outgoing = G.out_edges(node, data=True)
+            if outgoing:
+                max_edge = max(outgoing, key=lambda x: x[2].get("weight", 0))
+                max_edges.add((max_edge[0], max_edge[1]))
+
+        #Seperate primary and secondary lines
+        primary_edges = []
+        secondary_edges = []
+        for u, v in G.edges():
+            if (u, v) in max_edges:
+                primary_edges.append((u, v))
+            else:
+                secondary_edges.append((u, v))
+
+        #custom text labels for each node
+        node_labels = {node: f"State {node}" for node in G.nodes()}
+
+        #Draw the graph components
+        Node_Size =  5000*(0.95 **(len(G.nodes())-1))
+        Node_Radius = np.sqrt(Node_Size) / 2
+        Label_Size = Node_Radius / 3
+        nx.draw_networkx_nodes(G, pos, ax=ax, node_color=node_color, node_size=Node_Size, edgecolors="black",linewidths=0.75)
+        nx.draw_networkx_labels(G, pos, ax=ax, labels=node_labels, font_size=Label_Size, font_weight="bold")
+        ax.margins(0.2)
+
+        #line settings
+        primary_color = 'black'
+        primary_style = 'solid'
+
+        secondary_color = 'grey'
+        secondary_style = 'dashed'
+
+        count_range = max_count - min_count
+        min_line_size = 1
+        max_line_size = 4
+        line_size_range = max_line_size - min_line_size
+
+        #Main Line
+        primary_connections= []
+        primary_width = []
+        primary_arrowsz = []
+        for u, v in primary_edges:
+            #Scaling line sizes dynamically by count
+            edge_weight = G[u][v]['weight']
+            size_scale = 1 if count_range == 0 else (edge_weight - min_count)/count_range
+
+            line_size = min_line_size + line_size_range*size_scale
+            primary_width.append(line_size)
+            primary_arrowsz.append(line_size+5)
+
+            #Different connection style if arrow point to self
+            if u == v:
+                primary_connections.append("arc3,rad=0.0")
+            else:
+                primary_connections.append("arc3,rad=-0.1")
+        nx.draw_networkx_edges(
+            G, pos, ax=ax,
+            edgelist=primary_edges,
+            width=primary_width,
+            edge_color=primary_color,
+            style=primary_style,
+            arrows=True,
+            arrowsize=primary_arrowsz,
+            arrowstyle="-|>",
+            min_source_margin=Node_Radius,
+            min_target_margin=Node_Radius,
+            connectionstyle=primary_connections
+        )
+        #Secondary line
+        secondary_connections = []
+        secondary_width = []
+        secondary_arrowsz = []
+        for u, v in secondary_edges:
+            edge_weight = G[u][v]['weight']
+            size_scale = 1 if count_range == 0 else (edge_weight - min_count)/count_range
+
+            line_size = min_line_size + line_size_range*size_scale
+            secondary_width.append(line_size)
+            secondary_arrowsz.append(line_size+5)
+            if u == v:
+                secondary_connections.append("arc3,rad=0.0")
+            else:
+                secondary_connections.append("arc3,rad=0.5")
+        nx.draw_networkx_edges(
+            G, pos, ax=ax,
+            edgelist=secondary_edges,
+            width=secondary_width,
+            edge_color=secondary_color,
+            style=secondary_style,
+            arrows=True,
+            arrowsize=secondary_arrowsz,
+            arrowstyle="-|>",
+            min_source_margin=Node_Radius,
+            min_target_margin=Node_Radius,
+            connectionstyle=secondary_connections
+            )      
+
+    def actions_display(Relationships,States,ax,title):
+        ax.clear()
+        Main_path = {
+            first_idx: max((x for x in Relationships if x[0] == first_idx), key=lambda x: x[2])
+            for first_idx in set(x[0] for x in Relationships)
+        }
+        secondary_paths = [x for x in Relationships if Main_path.get(x[0]) != x]
+
+        State_path = [0]
+        for _ in range(len(Main_path)):
+            curr_state = State_path[-1]
+            next_state = Main_path[curr_state][1]
+            State_path.append(next_state)
+        
+        Filled_Main_Path =  States[State_path]
+        state_labels = [
+            f"State {num}'" if i == len(State_path) - 1 else f"State {num}" 
+            for i, num in enumerate(State_path)
+        ]
+        #collect anomolies
+        Anomolies = []
+        for i in State_path[:-1]:
+            from_i = [x[1] for x in secondary_paths if x[0] == i]
+
+            for action in from_i:
+                next_state = State_path[State_path.index(i)+1]
+                Anomolies.append((next_state,action))
+
+        Anomoly_XY = [(u, States[v, :-1]) for u, v in Anomolies]
+
+        #Main line
+        for i in range(Filled_Main_Path.shape[1] - 1):
+            line, =ax.plot(state_labels,Filled_Main_Path[:, i], label=f"Firm {i+1}", marker='o',linewidth=2,markersize=3)
+            current_line_color = line.get_color() #use same color for firm scatter points
+      
+
+            #Extract anomoly points
+            for tup in Anomoly_XY:
+                val = tup[1][i]
+                x_coord = f"State {tup[0]}'"if tup[0] == 0 else f"State {tup[0]}" 
+                ax.scatter(x_coord,val,facecolors=current_line_color,edgecolors='black',marker="D", s=15, zorder=3,linewidths=1)
+
+        if title == 'Price Actions':
+            Eq_Type = 'prices'
+        elif title == 'Investment Actions':
+            Eq_Type = 'investments'
+        else:
+            raise ValueError('Strategy title does not match')
+
+        add_equilibrium_lines(ax, Eq_Type, config, label_x,size=11,linewidth=2)
+
+        ax.set_title(title, fontsize=Titlesize)
+        ax.tick_params(axis='both', labelsize=LabelSize,length=LabelLength, width=LabelWidth,labelcolor='black')
+        ax.set_ylabel("Price/Investment", fontsize=LabelSize)
+        ax.tick_params(axis='x', labelrotation=45) 
+
+        return Filled_Main_Path,State_path
     
-    if not valid_pattern_lengths:  # If the list is empty (any pattern was None or all None)
-        has_pattern = False
-        View = 50
-        pattern_len = 0
-    else:
-        has_pattern = True
-        pattern_len = max(valid_pattern_lengths)
-        View = int(pattern_len * 3) + 1
+    def leadership_display(MainPath,Index_Path,firms,ax,title):
+        firm_labels = list(range(firms))
+        state_labels = [
+            f"State {num}'" if i == len(Index_Path) - 1 else f"State {num}" 
+            for i, num in enumerate(Index_Path)
+        ]
 
-    view_points = min(View, len(prices))
-    turns = np.arange(view_points)
+        Leader = MainPath[:,-1]
+        ax.scatter(state_labels,Leader, color="black", marker="o", s=25)
+        ax.set_yticks(firm_labels)
+        ax.set_yticklabels([f"Firm {f+1}" for f in firm_labels], fontsize=LabelSize)
+        padding = 0.5 
+        ax.set_ylim(min(firm_labels) - padding, max(firm_labels) + padding)
+        ax.set_title(title, fontsize=Titlesize)
+        ax.tick_params(axis='both', labelsize=LabelSize, length=LabelLength, width=LabelWidth,labelcolor='black')
+        ax.tick_params(axis='x', labelrotation=45) 
 
-    # Instantiate single canvas and axes cleanly
-    fig, axes = plt.subplots(
-        3,
-        1,
-        figsize=fig_size,
-        sharex=True,
-        gridspec_kw={'height_ratios': [1, 1, 0.6]}
-    )
+    # Run the functions for both pricing and investment
+    strategy_map(Price_Relationships, ax_price_map, "Price Relationships", "lightblue")
+    strategy_map(Investment_Relationships, ax_invest_map, "Investment Relationships", "lightgreen")
+
+    Price_Path,Price_Path_Indexes = actions_display(Price_Relationships,Price_States,ax_price_actions,"Price Actions")
+    Invest_Path,Invest_Path_Indexes = actions_display(Investment_Relationships,Investment_States,ax_invest_actions,"Investment Actions")
     
-    # Grid ticks at every integer cycle step
-    axes[0].set_xticks(turns) 
-    logs = [
-        ("Prices", prices, axes[0]),
-        ("Investments", investments, axes[1]),
-    ]
+    leadership_display(Price_Path,Price_Path_Indexes,num_firms,ax_price_lead,"Market Leader - Price Pattern")
+    leadership_display(Invest_Path,Invest_Path_Indexes,num_firms,ax_invest_lead,"Market Leader - Investment Pattern")
 
-    for title, matrix, ax in logs:
-        plot_matrix = matrix[-view_points:, :num_firms]
-        for firm_index in range(num_firms):
-            ax.plot(
-                turns,
-                plot_matrix[:, firm_index],
-                color=firm_colors[firm_index % len(firm_colors)],
-                label=f"Firm {firm_index + 1}"
-            )
-            
-            # Draw vertical pattern dividers if an overarching cycle length was isolated
-            if has_pattern:
-                ax.axvspan(0, pattern_len, facecolor='none', alpha=0.2, linewidth=2, linestyle='--', edgecolor='black')
-                ax.axvspan(pattern_len, pattern_len*2, facecolor='none', alpha=0.2, linewidth=2, linestyle='--', edgecolor='black')
-                ax.axvspan(pattern_len*2, pattern_len*3, facecolor='none', alpha=0.2, linewidth=2, linestyle='--', edgecolor='black')
-
-        add_equilibrium_lines(ax, title, config, label_x)
-        ax.set_title(title)
-        ax.set_ylabel(title[:-1])
-        ax.grid(True, alpha=0.25)
-
-    leader_values = prices[-view_points:, num_firms]
-    
-    axes[2].scatter(
-        turns,
-        leader_values,
-        color="black",
-        s=14,
-        zorder=3
-    )
-    axes[2].set_title("Leader Index")
-    axes[2].set_ylabel("Leader")
-    
-    # Configure Y-axis ticks to account for both active firm numbers and no leader state (if ever happens)
-    y_ticks = np.append([-1], np.arange(num_firms))
-    y_labels = ["None"] + [f"Firm {i+1}" for i in range(num_firms)]
-    axes[2].set_yticks(y_ticks)
-    axes[2].set_yticklabels(y_labels)
-    axes[2].set_ylim(-1.5, num_firms - 0.5)
-    axes[2].grid(True, alpha=0.25)
-
-    axes[-1].set_xlabel("Stationary iteration")
-    handles, labels = axes[0].get_legend_handles_labels()
-    fig.legend(handles, labels, loc="lower center", ncol=num_firms)
-    fig.tight_layout(rect=(0, 0.06, 1, 1))
+    for ax in axs.flat:
+        for spine in ax.spines.values():
+            spine.set_linewidth(LabelWidth)
 
     if save_path is not None:
         save_path = Path(save_path)
-        fig.savefig(save_path, dpi=dpi)
-
+        fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
     if show:
         plt.show()
     else:
         plt.close(fig)
 
-    return Price_Patterns, Investment_Patterns

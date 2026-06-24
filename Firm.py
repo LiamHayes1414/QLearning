@@ -75,25 +75,6 @@ class Firm:
                 
                 # CATCH IT: If the set size is greater than 1, a genuine shift occurred
                 if len(self.Stat_Responses[key]) > 1:
-                    
-                    sorted_indices = np.argsort(rounded_values)
-
-                    top_1_idx = sorted_indices[-1]
-                    top_2_idx = sorted_indices[-2]
-
-                    top_1_val = rounded_values[top_1_idx]
-                    top_1_act = self.possible_actions[top_1_idx]
-
-                    top_2_val = rounded_values[top_2_idx]
-                    top_2_act = self.possible_actions[top_2_idx]
-                    """if abs(top_1_val - top_2_val) <0.001:
-
-                        print(f" Max 1 (Index {top_1_idx}) Action {top_1_act}: Q = {top_1_val:.15f}")
-                        print(f" Max 2 (Index {top_2_idx}) Action {top_2_act}: Q = {top_2_val:.15f}")
-                        print("__")
-                    """
-                    
-
                     self.Stationarity_Counter = 0 
                     self.Stat_Responses[key].clear()
                     self.Stat_Responses[key].add(new_val)

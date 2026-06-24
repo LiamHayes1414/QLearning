@@ -36,25 +36,18 @@ def block_average_2d(matrix, block_size):
     return reshaped.mean(axis=(1, 3))
 
 def find_pattern(array:np.ndarray):
+    unique_states, unique_indexes = np.unique(array, axis=0, return_inverse=True)
 
-    target_cols = array.shape[1]-1
-    total_rows = array.shape[0]
-    Search_range = min(1000, total_rows // 2)
-    patterns = []
-    for col in range(target_cols):
-        col_data = array[:,col]
-        detected_length = None
-        # Only checking up to maximum search range
-        for lag in range(1, Search_range):
-            #Compare array against shifts of itself
-            if np.array_equal(col_data[-lag:], col_data[-2*lag : -lag]):
-                detected_length = lag
-                break
+    State_Indexes = unique_indexes[:-1]
+    Result_Indexes = unique_indexes[1:]
 
-        if detected_length:
-            extracted_pattern = col_data[:detected_length]
-            patterns.append(extracted_pattern)
-        else:
-            patterns.append(None)
+    States_Results = np.column_stack((State_Indexes, Result_Indexes))
 
-    return patterns
+    unique_pairs, counts = np.unique(States_Results, axis=0, return_counts=True)
+
+    #Store state action relationships in dict for easy access
+    relationships = []
+    for (left, right), count in zip(unique_pairs, counts):
+        relationships.append((left,right,count))
+
+    return relationships,unique_states
