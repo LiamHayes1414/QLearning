@@ -433,7 +433,7 @@ def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/s
     num_firms = config.firms
  
     label_x = 0  # x-coordinate for labels
-    Titlesize = 16
+    Titlesize = 13
     LabelSize = 11
     LabelWidth = 1
     LabelLength = 5
@@ -450,6 +450,27 @@ def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/s
     ax_invest_actions = axs[1, 1]
     ax_price_lead = axs[2,0]
     ax_invest_lead = axs[2,1]
+
+    #Place note at bottom of graph
+    note_text = (
+        "Relationship Charts: Show market state-action pairs.\n"
+        "Market States: Separates history into distinct Pricing vs. Investment states for visualization. "
+        "*Note: This differs from the main algorithm, where firms make decisions using only the pricing state.\n"
+        "Anomalies (if present): Indicated by dashed lines on relationship charts and diamonds on action charts."
+    )
+
+    # Place text at x=0.02 (slightly off the left edge) and y=0.01 (very bottom edge)
+    fig.text(
+        0.02, 0.01, note_text, 
+        fontsize=10, 
+        color='gray', 
+        style='italic',
+        verticalalignment='bottom', 
+        horizontalalignment='left'
+    )
+
+    #leave room at the bottom for the text
+    fig.get_layout_engine().set(rect=[0, 0.05, 1, 1]) 
 
     def strategy_map(relationships, ax, title, node_color):
         ax.clear()
@@ -515,8 +536,8 @@ def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/s
         secondary_style = 'dashed'
 
         count_range = max_count - min_count
-        min_line_size = 1
-        max_line_size = 4
+        min_line_size = 2
+        max_line_size = 3
         line_size_range = max_line_size - min_line_size
 
         #Main Line

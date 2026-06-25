@@ -24,14 +24,14 @@ class Config:
     K: float = 50  # Chance for no innovation to occur
     delta: float = 0.95
     #Learning parameters
-    learningrate = 0.5
+    learningrate = 0.25
     #State variables
     prices_count = 15
     investments_count = 1
     price_interval_margin = 0.02
     investment_interval_margin = 0.1
     #based on above values     _States_                      _actions_             visit each ~X times
-    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) *100
+    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) *1000
     epsilon_decay: float = -1/(explorationlen)
 
     #Holder variables

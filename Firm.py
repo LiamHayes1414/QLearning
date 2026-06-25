@@ -61,7 +61,7 @@ class Firm:
             action_index = np.random.choice(max_indices)
 
             if epsilon==0 and len(max_indices) >1:
-                print("True")
+                print("Tie Breaker")
         price, invest = self.possible_actions[action_index]
 
         if Optimal:
@@ -69,21 +69,16 @@ class Firm:
             new_val = (price, invest)
 
             # Check if key (State) already exists in dictionary
-            if key in self.Stat_Responses:
-                # Add the rounded action to the set
-                self.Stat_Responses[key].add(new_val)
-                
-                # CATCH IT: If the set size is greater than 1, a genuine shift occurred
-                if len(self.Stat_Responses[key]) > 1:
+            if key in self.Stat_Responses:                        
+                #If different action for given state
+                if self.Stat_Responses[key] != new_val:
                     self.Stationarity_Counter = 0 
-                    self.Stat_Responses[key].clear()
-                    self.Stat_Responses[key].add(new_val)
+                    self.Stat_Responses[key] = new_val
                 else:
-                    # FIX 2: If size is 1, the new action successfully matched the existing one
+                    #if action is the same increase stationary counter
                     self.Stationarity_Counter += 1
             else: 
-                # Initialize tracking with a SET instead of a single tuple
-                self.Stat_Responses[key] = {new_val}
+                self.Stat_Responses[key] = new_val
             
         return price, invest
     

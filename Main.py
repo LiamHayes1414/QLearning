@@ -175,7 +175,7 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
                 Price_explog.append(np.append(Price_Actions,None))
                 Invest_explog.append(np.append(Investment_Actions,None))
 
-        elif Round>ExpLen: #experimentation is over
+        if Round>ExpLen: #experimentation is over
             if min(Firm_Stationarity) == 0:
                 #if Q matrix changes dump stat log
                 Profits_statlog = []
@@ -185,7 +185,6 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
                 Profits_statlog.append(np.append(Profit,Leadership.index(1)))
                 Price_statlog.append(np.append(Price_Actions,Leadership.index(1)))
                 Invest_statlog.append(np.append(Investment_Actions,Leadership.index(1)))
-
                 
         #Progress bar - only updates every X rounds
         if Round % 20000 == 0:
