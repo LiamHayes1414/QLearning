@@ -33,20 +33,20 @@
         "Max_F": 0,
         "Avg_F": 0.0,
         "Pct_Missed_F": "100.0%",
-        "Min_L": 47,
-        "Max_L": 12602,
-        "Avg_L": 130.5102222222222,
+        "Min_L": 43,
+        "Max_L": 15300,
+        "Avg_L": 130.1997037037037,
         "Pct_Missed_L": "0.0%"
     },
     "Firm2 Visits": {
-        "Min_F": 40,
-        "Max_F": 12391,
-        "Avg_F": 130.5102222222222,
+        "Min_F": 37,
+        "Max_F": 15042,
+        "Avg_F": 130.1997037037037,
         "Pct_Missed_F": "0.0%",
         "Min_L": 0,
         "Max_L": 0,
         "Avg_L": 0.0,
         "Pct_Missed_L": "100.0%"
     },
-    "Rounds": 440472
+    "Rounds": 439424
 }

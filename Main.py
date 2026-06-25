@@ -136,10 +136,10 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
 
             FollowerBest = np.array(Follower_Best)#Only exists in non monopoly case
 
-            ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit-Investment_Actions + delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest))
+            ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest))
         elif firms == 1:
             #In monopoly firm is guaranteed to remain leader
-            ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit-Investment_Actions + delta*LeaderBest )
+            ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*LeaderBest )
 
         #Make sure i don't get any floating point errors
         cleaned_expectations = np.round(ValueExpectations, 4)
