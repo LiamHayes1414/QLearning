@@ -3,8 +3,8 @@
     "Follower Price": 12.987919785830979,
     "Leader Investment": 196.83796410399205,
     "Follower Investment": 246.83796410399205,
-    "Leader Profit": 2927.2375294267194,
-    "Follower Profit": 1987.9197858309633,
+    "Leader Profit": 2730.3995653227275,
+    "Follower Profit": 1741.0818217269712,
     "Monopoly Price": 14.513727529379404,
     "Price Interval": [
         12.73,
@@ -25,28 +25,32 @@
     ],
     "Monopoly Investment": 0,
     "Investment Interval": [
-        0
+        0.0,
+        67.88,
+        135.76,
+        203.64,
+        271.52
     ],
     "Monopoly Profit": 3513.727529379406,
     "Firm1 Visits": {
-        "Min_F": 0,
-        "Max_F": 0,
-        "Avg_F": 0.0,
-        "Pct_Missed_F": "100.0%",
-        "Min_L": 6071,
-        "Max_L": 186353,
-        "Avg_L": 10028.800888888889,
+        "Min_F": 307,
+        "Max_F": 24005,
+        "Avg_F": 509.9383111111111,
+        "Pct_Missed_F": "0.0%",
+        "Min_L": 307,
+        "Max_L": 17868,
+        "Avg_L": 508.5668148148148,
         "Pct_Missed_L": "0.0%"
     },
     "Firm2 Visits": {
-        "Min_F": 6126,
-        "Max_F": 134319,
-        "Avg_F": 10028.800888888889,
+        "Min_F": 307,
+        "Max_F": 17556,
+        "Avg_F": 508.56693333333334,
         "Pct_Missed_F": "0.0%",
-        "Min_L": 0,
-        "Max_L": 0,
-        "Avg_L": 0.0,
-        "Pct_Missed_L": "100.0%"
+        "Min_L": 309,
+        "Max_L": 24340,
+        "Avg_L": 509.9381925925926,
+        "Pct_Missed_L": "0.0%"
     },
-    "Rounds": 33847203
+    "Rounds": 17187274
 }

@@ -211,7 +211,7 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
 #Process results
 plot_start = time.perf_counter()
 plotting((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog),config,Downsample_len,Stat_log_Counter)
-if config.investments_count>1 and firms>1:leaderplots((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog), config, Downsample_len)
+if config.investments_count>1 and firms>1:leaderplots((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog), config, Downsample_len,Stat_log_Counter)
 #plot_visit_counts_3d(Firms)
 strategy(Price_statlog, Invest_statlog, config)
 plot_elapsed = time.perf_counter() - plot_start

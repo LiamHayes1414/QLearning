@@ -169,13 +169,24 @@ def leaderplots(
     price_log,
     invest_log,
     config,
-    downsample=100,
+    downsample,
+    stat_log_counter,
     save_path="TrainingResults/leader_plots.png",
     show=False,
     fig_size=None,
     dpi=300
 ):
     print('Leader Plot')
+    num_firms = config.firms
+    if fig_size is None:
+        fig_size = (max(16, 8 * num_firms), 11)
+
+    fig, axes = plt.subplots(3,num_firms,figsize=fig_size,sharex='col',gridspec_kw={'height_ratios': [1, 1, 1]})
+
+    if num_firms == 1:axes = axes.reshape(3, 1)
+
+    firm_colors = plt.cm.tab10.colors
+    
     profits_explog, profits_statlog = profits_log
     price_explog, price_statlog = price_log
     invest_explog, invest_statlog = invest_log
@@ -185,76 +196,57 @@ def leaderplots(
         ("Prices", "Price", price_explog, price_statlog),
         ("Investments", "Investment", invest_explog, invest_statlog),
     ]
-    num_firms = config.firms
+    
 
     exp_matrices = []
     stat_matrices = []
-    for _, _, log_e, log_s in logs:
-        exp_matrices.append(np.asarray(log_e))
+    for _, _, log_e, log_s in logs: 
+                                            #remove stationary values from exp_matrices (different appending frequency will be incorrect for leader filtering)
+        exp_matrices.append(np.asarray(log_e)[:-stat_log_counter])
         stat_matrices.append(np.asarray(log_s))
 
-    exp_points = len(exp_matrices[0])
-    exp_turns = np.arange(exp_points) * downsample
-    stat_turns = np.arange(len(stat_matrices[0])) + exp_points * downsample
+    
+    #See who is the market leader for each data point
+    leader_column_exp = exp_matrices[0][:, num_firms]
+    leader_column_stat = stat_matrices[0][:, num_firms]
 
-    exp_leader_column = exp_matrices[0][:, num_firms]
-    stat_leader_column = stat_matrices[0][:, num_firms]
-    smooth_window = max(1, exp_points // 50)
+    for leader_index in range(num_firms): #columns in diagram
+        leader_mask_exp = leader_column_exp == leader_index
+        leader_mask_stat = leader_column_stat == leader_index
+        
+        for ax, (title, ylabel, _, _), matrix_e, matrix_s in zip(axes[:3, leader_index],logs,exp_matrices,stat_matrices): #Rows in diagram
+            leaderI_turns_exp = matrix_e[leader_mask_exp]
+            leaderI_turns_stat = matrix_s[leader_mask_stat]
 
-    if fig_size is None:
-        fig_size = (max(16, 8 * num_firms), 11)
+            leaderI_exp_points = len(leaderI_turns_exp)
+            leaderI_stat_points = len(leaderI_turns_stat)
 
-    fig, axes = plt.subplots(
-        4,
-        num_firms,
-        figsize=fig_size,
-        sharex='col',
-        gridspec_kw={'height_ratios': [1, 1, 1, 0.25]}
-    )
+            exp_turns = np.arange(leaderI_exp_points) * downsample
+            stat_turns = np.arange(leaderI_stat_points) + max(exp_turns) +1
 
-    if num_firms == 1:
-        axes = axes.reshape(4, 1)
+            total_turns = np.concatenate([exp_turns, stat_turns])
+            total_points = np.concatenate([leaderI_turns_exp,leaderI_turns_stat])
 
-    firm_colors = plt.cm.tab10.colors
+            smooth_window = max(1, leaderI_exp_points // 50)
+            label_x = exp_turns[min(smooth_window, leaderI_exp_points - 1)]
 
-    for leader_index in range(num_firms):
-        exp_leader_mask = exp_leader_column == leader_index
-        stat_leader_mask = stat_leader_column == leader_index
-        leader_exp_turns = exp_turns[exp_leader_mask]
-        leader_stat_turns = stat_turns[stat_leader_mask]
-        label_turns = np.concatenate((leader_exp_turns, leader_stat_turns))
-        label_x = label_turns[0] if len(label_turns) else 0
-
-        for ax, (title, ylabel, _, _), matrix_e, matrix_s in zip(
-            axes[:3, leader_index],
-            logs,
-            exp_matrices,
-            stat_matrices
-        ):
-            leader_exp_matrix = matrix_e[exp_leader_mask, :num_firms]
-            leader_stat_matrix = matrix_s[stat_leader_mask, :num_firms]
-            leader_smooth_window = min(smooth_window, len(leader_exp_turns))
-
-            if leader_smooth_window > 0:
-                kernel = np.ones(leader_smooth_window) / leader_smooth_window
-                smooth_turns = leader_exp_turns[leader_smooth_window - 1:]
-
-                for firm_index in range(num_firms):
-                    smooth_firm = np.convolve(leader_exp_matrix[:, firm_index],kernel,mode='valid')
-                    firm_color = firm_colors[firm_index % len(firm_colors)]
-                    ax.plot(
-                        smooth_turns,
-                        smooth_firm,
-                        linewidth=1,
-                        color=firm_color,
-                        label=f'Firm {firm_index + 1} trend ({leader_smooth_window})'
-                    )
-
+            kernel = np.ones(smooth_window) / smooth_window
+            smooth_turns = total_turns[smooth_window - 1:]
+     
             for firm_index in range(num_firms):
+                smooth_firm = np.convolve(total_points[:, firm_index], kernel, mode='valid')
                 firm_color = firm_colors[firm_index % len(firm_colors)]
+                ax.plot(
+                    smooth_turns,
+                    smooth_firm,
+                    linewidth=1,
+                    color=firm_color,
+                    label=f'Firm {firm_index + 1} trend ({smooth_window})'
+                )
+                #plot last 100 points to see if there is oscillation
                 ax.scatter(
-                    leader_stat_turns[:100],
-                    leader_stat_matrix[:, firm_index][-100:],
+                    stat_turns[-100:],
+                    matrix_s[:, firm_index][-100:], #showing last 100
                     color=firm_color,
                     s=10,
                     zorder=3
@@ -266,29 +258,9 @@ def leaderplots(
             ax.grid(True, alpha=0.25)
             ax.margins(x=0)
 
-        ax4 = axes[3, leader_index]
-        decay_axis = np.concatenate((leader_exp_turns, leader_stat_turns[:100]))
-        if len(decay_axis):
-            y_vals = np.maximum((config.epsilon_decay * decay_axis) + 1, 0)
-            ax4.plot(decay_axis, y_vals, color='purple')
-
-        ax4.set_title(r'$\text{Exploration Probability } \epsilon$')
-        ax4.set_ylim(-0.1, 1.1)
-        ax4.grid(True, alpha=0.25)
-        ax4.margins(x=0)
-
-        if len(label_turns) == 0:
-            axes[0, leader_index].text(
-                0.5,
-                0.5,
-                f"No rounds where Firm {leader_index + 1} was leader",
-                transform=axes[0, leader_index].transAxes,
-                ha="center",
-                va="center",
-            )
-
+        #Hide y axis on all column except first one (save space)
         if leader_index > 0:
-            for row_index in range(4):
+            for row_index in range(3):
                 axes[row_index, leader_index].set_ylabel("")
 
         axes[-1, leader_index].set_xlabel('Turns')
