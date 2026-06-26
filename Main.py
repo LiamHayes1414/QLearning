@@ -59,6 +59,7 @@ Price_statlog = []
 Invest_statlog = []
 
 Round = 0
+Stat_log_Counter = 0
 Firm_Stationarity = [0]
 Stationarity_Target = 100000
 training_start = time.perf_counter()
@@ -165,7 +166,7 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
                     if int(winner) == i:
                         f.Leader = 1
         #Save profits for graphing
-        if Round % Downsample_len == 0: #downsample within exploration length
+        if Round % Downsample_len == 0 or Round>ExpLen: #downsample within exploration length
             if 1 in Leadership: #no leader on first round(and maybe more if no one wins innovation)
                 Profits_explog.append(np.append(Profit,Leadership.index(1)))
                 Price_explog.append(np.append(Price_Actions,Leadership.index(1)))
@@ -174,6 +175,9 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
                 Profits_explog.append(np.append(Profit,None))
                 Price_explog.append(np.append(Price_Actions,None))
                 Invest_explog.append(np.append(Investment_Actions,None))
+
+            #See how many entries are recorded past experimentation (not downsampled)
+            if Round>ExpLen:Stat_log_Counter+=1
 
         if Round>ExpLen: #experimentation is over
             if min(Firm_Stationarity) == 0:
@@ -206,7 +210,7 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
 
 #Process results
 plot_start = time.perf_counter()
-plotting((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog),config,Downsample_len)
+plotting((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog),config,Downsample_len,Stat_log_Counter)
 if config.investments_count>1 and firms>1:leaderplots((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog), config, Downsample_len)
 #plot_visit_counts_3d(Firms)
 strategy(Price_statlog, Invest_statlog, config)

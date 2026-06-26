@@ -61,6 +61,7 @@ def plotting(
     invest_logs,
     config,
     downsample,
+    stat_log_counter,
     save_path="TrainingResults/training_plots.png",
     show=False,
     fig_size=(16, 11),
@@ -90,11 +91,14 @@ def plotting(
         stat_matrices.append(stat_matrix)
 
     exp_points = len(exp_matrices[0])
-    exp_turns = np.arange(exp_points) * downsample
 
-    stat_turns = np.arange(len(stat_matrices[0])) + exp_points* downsample
+    experimentation = exp_points - stat_log_counter
+    exp_turns = np.arange(experimentation) * downsample
+    stat_turns = np.arange(stat_log_counter) + max(exp_turns) +1
 
-    smooth_window = max(1, exp_points // 50)
+    total_turns = np.concatenate([exp_turns, stat_turns])
+
+    smooth_window = max(1, exp_points // 1000)
     label_x = exp_turns[min(smooth_window, exp_points - 1)]
 
     fig, axes = plt.subplots(4, 1, figsize=fig_size, sharex=True,gridspec_kw={'height_ratios': [1, 1, 1, 0.25]})
@@ -103,7 +107,7 @@ def plotting(
     for metric_index, (ax, (title, ylabel, _,_), matrix_e,matrix_s) in enumerate(zip(axes[:3], logs, exp_matrices,stat_matrices)):
 
         kernel = np.ones(smooth_window) / smooth_window
-        smooth_turns = exp_turns[smooth_window - 1:]
+        smooth_turns = total_turns[smooth_window - 1:]
         for firm_index in range(num_firms):
                 smooth_firm = np.convolve(matrix_e[:, firm_index], kernel, mode='valid')
                 firm_color = firm_colors[firm_index % len(firm_colors)]
@@ -116,7 +120,7 @@ def plotting(
                 )
                 #plot last 100 points to see if there is oscillation
                 ax.scatter(
-                    stat_turns[:100], #using first 100 indexes so plotting is nicer
+                    stat_turns[-100:],
                     matrix_s[:, firm_index][-100:], #showing last 100
                     color=firm_color,
                     s=10,
@@ -132,11 +136,11 @@ def plotting(
         ax.margins(x=0)
 
     ax4 = axes[3]
-    decay_axis = np.concatenate((exp_turns, stat_turns[:100]))
-    y_vals = np.maximum((config.epsilon_decay*decay_axis) + 1,0)
+
+    y_vals = np.maximum((config.epsilon_decay*total_turns) + 1,0)
 
     # Plot the simple function
-    ax4.plot(decay_axis, y_vals, color='purple')
+    ax4.plot(total_turns, y_vals, color='purple')
     ax4.set_title(r'$\text{Exploration Probability } \epsilon = MAX(\left(-\frac{1}{\text{ExploreLen}}\right) \times \text{Round} + 1$, 0)')
     ax4.set_ylim(-0.1, 1.1)
     ax4.grid(True, alpha=0.25)
@@ -236,11 +240,7 @@ def leaderplots(
                 smooth_turns = leader_exp_turns[leader_smooth_window - 1:]
 
                 for firm_index in range(num_firms):
-                    smooth_firm = np.convolve(
-                        leader_exp_matrix[:, firm_index],
-                        kernel,
-                        mode='valid'
-                    )
+                    smooth_firm = np.convolve(leader_exp_matrix[:, firm_index],kernel,mode='valid')
                     firm_color = firm_colors[firm_index % len(firm_colors)]
                     ax.plot(
                         smooth_turns,
@@ -536,7 +536,7 @@ def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/s
         secondary_style = 'dashed'
 
         count_range = max_count - min_count
-        min_line_size = 2
+        min_line_size = 3
         max_line_size = 3
         line_size_range = max_line_size - min_line_size
 
@@ -634,7 +634,17 @@ def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/s
         for i in range(Filled_Main_Path.shape[1] - 1):
             line, =ax.plot(state_labels,Filled_Main_Path[:, i], label=f"Firm {i+1}", marker='o',linewidth=2,markersize=3)
             current_line_color = line.get_color() #use same color for firm scatter points
-      
+
+            firm_average = np.mean(Filled_Main_Path[:, i])
+            x_pos = state_labels[-1] 
+            ax.plot(x_pos, firm_average, marker='<', markersize=8, color=current_line_color)
+            ax.annotate(f'Avg:{firm_average:.2f}',xy=(x_pos, firm_average),xytext=(10, 0),textcoords='offset points',va='center',color=current_line_color,fontweight='light',
+                        bbox=dict(
+                            facecolor='white', 
+                            edgecolor=current_line_color, 
+                            boxstyle='round,pad=0.3'                  
+                        ))
+    
 
             #Extract anomoly points
             for tup in Anomoly_XY:
