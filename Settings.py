@@ -2,9 +2,8 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional
 import numpy as np
 import math
-from scipy.optimize import root_scalar
-from scipy.optimize import fsolve
-
+from scipy.optimize import root_scalar,fsolve,minimize
+ 
 #initialize
 DemandFn = Callable[[np.ndarray, np.ndarray], np.ndarray]
 
@@ -31,7 +30,7 @@ class Config:
     price_interval_margin = 0.02
     investment_interval_margin = 0.1
     #based on above values     _States_                      _actions_             visit each ~X times
-    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) *1000
+    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) *100
     epsilon_decay: float = -1/(explorationlen)
 
     #Holder variables
@@ -130,29 +129,9 @@ class Config:
             Rl = Rl * self.mrktsz
             Rf = Rf * self.mrktsz
 
-            C = (1+
-                self.delta*(
-                    (num_followers-1)/(4*num_followers)if num_followers != 0 else 0
-                    +(2*num_followers)
-                    +1
-                    )
-                )
-            def investment_equations(vars):
-                xl, xf = vars
-                N = self.delta*(Rl - xl - Rf + xf + self.K)
-
-                LeaderEq = N/(4*C) -self.K - xl
-                FollowerEq = N/(4*num_followers*C) -xf
-
-                return [LeaderEq, FollowerEq]
-                
-            initial_guess = [self.K, self.K]
-                    
-            # Run the numerical solver
-            solution, info, ier, mesg = fsolve(investment_equations, initial_guess, full_output=True)
-                    
-            if ier == 1:
-                leader_investment, follower_investment = solution
+            M = self.delta*num_followers / (num_followers+1)**2
+            leader_investment = M*(Rl - Rf +(2*self.K)) - self.K
+            follower_investment = M*(Rl - Rf +(2*self.K))
 
         monopoly_investment = 0
         if self.firms >1:

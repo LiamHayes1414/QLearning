@@ -48,7 +48,7 @@ for lag in range(lags):
     State_log.append([prices[0]]*firms)
 
 Industry_m = 1
-Downsample_len = 10
+Downsample_len = 100
     #fixed experimentation log
 Profits_explog = []
 Price_explog = []
@@ -63,6 +63,7 @@ Stat_log_Counter = 0
 Firm_Stationarity = [0]
 Stationarity_Target = 100000
 training_start = time.perf_counter()
+prev_profits = np.ones(firms)
 
 with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
     while min(Firm_Stationarity) < Stationarity_Target:
@@ -74,8 +75,9 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
         Prices = []
         Investments = []
         Leadership = []
-        Firm_Stationarity = []
-        for f in Firms:
+        Firm_Stationarity = [] 
+
+        for i, f in enumerate(Firms, start=0):
             Action = f.Action(State_log, epsilon)
             Prices.append(Action[0])
             Investments.append(Action[1])
@@ -96,6 +98,7 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
         MarketShares = Demand(Price_Actions,Leader) * mrktsz #for readability
 
         Profit = (Price_Actions - mc)*MarketShares - Investment_Actions
+        prev_profits = Profit
     
         #Calculate best possible outcomes next period 
         Leader_Best = []

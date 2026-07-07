@@ -246,7 +246,7 @@ def leaderplots(
                 #plot last 100 points to see if there is oscillation
                 ax.scatter(
                     stat_turns[-100:],
-                    matrix_s[:, firm_index][-100:], #showing last 100
+                    leaderI_turns_stat[:, firm_index][-100:], #showing last 100
                     color=firm_color,
                     s=10,
                     zorder=3
@@ -466,7 +466,7 @@ def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/s
 
         if len(G.nodes()) > 1:
             k = 100 / np.sqrt(len(G.nodes()))
-            pos = nx.spring_layout(G, k=k, iterations=1000, seed=42, scale=10)
+            pos = nx.spring_layout(G, k=k, iterations=10000, seed=42, scale=10)
             #pos = nx.kamada_kawai_layout(G, scale=3)
         else:
             pos = nx.spring_layout(G, seed=42)

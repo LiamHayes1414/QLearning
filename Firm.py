@@ -1,5 +1,4 @@
 import numpy as np
-import itertools
 
 class Firm:
 
@@ -15,7 +14,7 @@ class Firm:
         #^store how many times each state action part is visited to make the model aware of its confidence
 
         self.config = SettingsConfig
-
+    
         #Initialize settings obj
         self.price_options = self.config.price_options
         self.possible_actions = Possible_Actions
@@ -29,7 +28,7 @@ class Firm:
         price_indices = np.searchsorted(self.price_options, clean_prices)
         return list(price_indices)
 
-    def Action(self, log, epsilon=0):
+    def Action(self, log, epsilon):
 
         price_indices = self.decodelog(log)
 
@@ -46,8 +45,9 @@ class Firm:
 
         Optimal = True
         rounded_values = np.round(state_action_values, 4)
-
-        if np.random.random() < epsilon : 
+        
+ 
+        if np.random.random() < epsilon: 
             #within probability of epsilon, choose least visited action
             min_visits = np.min(state_action_visits)
             min_indices = np.flatnonzero(state_action_visits == min_visits)
