@@ -51,7 +51,6 @@ class Firm:
             #within probability of epsilon, choose least visited action
             min_visits = np.min(state_action_visits)
             min_indices = np.flatnonzero(state_action_visits == min_visits)
-            #action_index = np.random.choice(min_indices)
             action_index = min_indices[0]
             Optimal = False
         else:
@@ -65,7 +64,7 @@ class Firm:
         price, invest = self.possible_actions[action_index]
 
         if Optimal:
-            key = tuple(price_indices)
+            key = tuple(price_indices) #Full pricing state
             new_val = (price, invest)
 
             # Check if key (State) already exists in dictionary
@@ -74,10 +73,11 @@ class Firm:
                 if self.Stat_Responses[key] != new_val:
                     self.Stationarity_Counter = 0 
                     self.Stat_Responses[key] = new_val
-                else:
+                elif self.Stat_Responses[key] == new_val:
                     #if action is the same increase stationary counter
                     self.Stationarity_Counter += 1
             else: 
+                self.Stationarity_Counter = 0 
                 self.Stat_Responses[key] = new_val
             
         return price, invest

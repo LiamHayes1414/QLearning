@@ -5,7 +5,7 @@ from Settings import Config
 import numpy as np
 import time
 from tqdm import tqdm
-from Visualize import plotting, plot_visit_counts_3d, leaderplots,strategy
+from Visualize import plotting, plot_visit_counts_3d, leaderplots,strategyNew
 import json
 import random
 from Helper import format_eta,NumpyEncoder
@@ -57,13 +57,13 @@ Invest_explog = []
 Profits_statlog = []
 Price_statlog = []
 Invest_statlog = []
+State_logs = []
 
 Round = 0
 Stat_log_Counter = 0
 Firm_Stationarity = [0]
 Stationarity_Target = 100000
 training_start = time.perf_counter()
-prev_profits = np.ones(firms)
 
 with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
     while min(Firm_Stationarity) < Stationarity_Target:
@@ -98,8 +98,7 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
         MarketShares = Demand(Price_Actions,Leader) * mrktsz #for readability
 
         Profit = (Price_Actions - mc)*MarketShares - Investment_Actions
-        prev_profits = Profit
-    
+
         #Calculate best possible outcomes next period 
         Leader_Best = []
         Follower_Best = []
@@ -134,17 +133,22 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
         Current_Values = np.array(Current_Values)
     
         #Innovation success probabilities
+
         if firms >1:
             MarketInnovation = np.sum(Investment_Actions) + K
             Firm_Probabilities = Investment_Actions/MarketInnovation
-
             FollowerBest = np.array(Follower_Best)#Only exists in non monopoly case
 
-            ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest))
+            #If no innovation, leader remains so leader probability is own investment + no innovation chance
+            NoInnovationProb = K/MarketInnovation * Leader
+            Firm_Probabilities +=NoInnovationProb
+            
+            #If firm is is the current leader use 
+            ValueExpectations= (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest))
         elif firms == 1:
             #In monopoly firm is guaranteed to remain leader
             ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*LeaderBest )
-
+            
         #Make sure i don't get any floating point errors
         cleaned_expectations = np.round(ValueExpectations, 4)
 
@@ -188,11 +192,15 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
                 Profits_statlog = []
                 Price_statlog = []
                 Invest_statlog = []
+                State_logs = []
             else:
                 Profits_statlog.append(np.append(Profit,Leadership.index(1)))
                 Price_statlog.append(np.append(Price_Actions,Leadership.index(1)))
                 Invest_statlog.append(np.append(Investment_Actions,Leadership.index(1)))
-                
+                #Only append unique states
+                CurrStateTup = tuple(value for sublist in State_log for value in sublist)
+                if CurrStateTup not in State_logs:State_logs.append(CurrStateTup)
+
         #Progress bar - only updates every X rounds
         if Round % 20000 == 0:
             completed_rounds = Round + 1
@@ -210,13 +218,14 @@ with tqdm(total=Stationarity_Target, desc="Tracking Stationarity") as pbar:
             pbar.set_postfix(rounds=f"{completed_rounds / 1e6:.2f}M/{ExpLen / 1e6:.2f}M",Exp_ETA=exp_eta)
             pbar.refresh()
         Round+=1
+if len(Price_statlog)!=100000:print("Stat log not equal to 100k")
 
 #Process results
 plot_start = time.perf_counter()
 plotting((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog),config,Downsample_len,Stat_log_Counter)
 if config.investments_count>1 and firms>1:leaderplots((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog), config, Downsample_len,Stat_log_Counter)
 #plot_visit_counts_3d(Firms)
-strategy(Price_statlog, Invest_statlog, config)
+strategyNew(State_logs,Firms,config)
 plot_elapsed = time.perf_counter() - plot_start
 
 print(f"Plotting completed in {plot_elapsed:.2f} seconds")

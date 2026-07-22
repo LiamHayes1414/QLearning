@@ -41,6 +41,9 @@ def find_pattern(array:np.ndarray):
     State_Indexes = unique_indexes[:-1]
     Result_Indexes = unique_indexes[1:]
 
+    print(State_Indexes)
+    print(Result_Indexes)
+
     States_Results = np.column_stack((State_Indexes, Result_Indexes))
 
     unique_pairs, counts = np.unique(States_Results, axis=0, return_counts=True)

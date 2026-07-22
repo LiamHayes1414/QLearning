@@ -1,3 +1,5 @@
 Calculate consumer surplus 
 Build pipeline for testing various settings (a,b,firms etc) in one run
 figure out how to make final results more consistent across runs
+Adding tracking of m value
+Update stat log so that it only stores the last 100,000 (or however many iterations in stationarity counter) and moves extra to exp log when stat counter is broken

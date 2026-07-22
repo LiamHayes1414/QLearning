@@ -5,8 +5,6 @@ from matplotlib.ticker import MaxNLocator
 from matplotlib.patches import Patch
 from Helper import block_average_2d,find_pattern
 import networkx as nx
-import matplotlib.patheffects as patheffects
-
 
 def add_equilibrium_lines(ax, title, config, label_x,linewidth=1.2,size=8,borderWidth=0.5):
     monopoly_colour = '#C62828'
@@ -679,3 +677,102 @@ def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/s
     else:
         plt.close(fig)
 
+def strategyNew(StateLogs,Firms, config):
+
+    num_firms = len(Firms)
+    fig, axes = plt.subplots(1, num_firms, figsize=(6 * num_firms, 5))
+    
+    #Monopoly case
+    if num_firms == 1:
+        axes = [axes]
+
+    for i in range(num_firms):
+        current_ax = axes[i]
+
+        #Stores the possible actions for each scenario given current state
+
+        for state in StateLogs:
+            Possible_Actions= {i: [] for i in range(1, num_firms + 1)}
+            for i,f in enumerate(Firms,start=1):
+                Responses = f.Stat_Responses
+                Price_index = f.decodelog(state)
+
+                Price_options = f.price_options
+                Price_Values = [Price_options[i] for i in Price_index]
+
+                #Possible state if leader or follower
+                LeaderState = tuple(Price_index+[1])
+                FollowerState = tuple(Price_index+[0])
+                LeaderResponse = Responses[LeaderState] 
+                FollowerResponse = Responses[FollowerState]
+                print(LeaderResponse)
+                print(FollowerResponse)
+                
+                #Add responses to dict key in line with which firm is the potnetial new leader (leadership from market perspective not firm perspective)
+                for key in Possible_Actions.keys():
+                    if key == i:
+                        Possible_Actions[key].append(LeaderResponse)
+                    else:
+                        Possible_Actions[key].append(FollowerResponse)
+
+        print(Possible_Actions)
+        exit()
+     
+
+
+
+
+
+
+        print("Current",Price_Values)
+        print("Leader action",)
+  
+
+        exit()
+        
+
+        #want to see all possible states in game when stationarity is achieved
+
+     
+            
+        G = nx.DiGraph()
+
+        # 2. Define nodes and coordinates
+        pos = {
+            "10": (0, 10), "20": (1, 20), "30": (1, 30),
+            "40": (2, 40), "50": (2, 50), "60": (2, 60)
+        }
+        G.add_nodes_from(pos.keys())
+
+        # 3. Define arrows
+        edges = [
+            ("10", "20", "p=0.6"), ("10", "30", "p=0.4"),
+            ("20", "40", "Option A"), ("20", "50", "Option B"),
+            ("30", "50", "Option C"), ("30", "60", "Option D")
+        ]
+        for u, v, label in edges:
+            G.add_edge(u, v, label=label)
+
+        # 4. Configure visual styling
+        node_colors = ["#1f77b4" if n == "10" else "#ff7f0e" for n in G.nodes()]
+
+        # 5. Draw the network components to the TARGET axis
+        nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=800, ax=current_ax)
+        nx.draw_networkx_labels(G, pos, font_color="white", font_weight="bold", font_size=10, ax=current_ax)
+        nx.draw_networkx_edges(
+            G, pos, arrowstyle="-|>", arrowsize=15, edge_color="gray", 
+            width=2, node_size=800, ax=current_ax
+        )
+        edge_labels = nx.get_edge_attributes(G, "label")
+        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, font_color="red", ax=current_ax)
+
+        # 6. Force axis styling on the TARGET axis
+        current_ax.set_axis_on()
+        current_ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+        current_ax.set_xlabel(f"Time Step (t) - Firm {i}")
+        current_ax.set_ylabel("State/Value Level")
+        current_ax.grid(True, linestyle="--", alpha=0.5)
+
+    # 7. Render both charts together cleanly at the very end
+    plt.tight_layout()
+    plt.show()
