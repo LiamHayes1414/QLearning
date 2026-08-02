@@ -73,8 +73,10 @@ class Firm:
                 if self.Stat_Responses[key] != new_val:
                     self.Stationarity_Counter = 0 
                     self.Stat_Responses[key] = new_val
+
                 elif self.Stat_Responses[key] == new_val:
                     #if action is the same increase stationary counter
+                    self.Stat_Responses[key] = new_val
                     self.Stationarity_Counter += 1
             else: 
                 self.Stationarity_Counter = 0 

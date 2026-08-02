@@ -3,3 +3,4 @@ networkx==3.4.2
 numpy==2.5.1
 scipy==1.18.0
 tqdm==4.67.1
+pygraphviz==2.0.1

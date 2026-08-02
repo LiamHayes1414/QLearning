@@ -2,7 +2,7 @@ from dataclasses import dataclass, field
 from typing import Callable, Optional
 import numpy as np
 import math
-from scipy.optimize import root_scalar,fsolve,minimize
+from scipy.optimize import root_scalar,fsolve
  
 #initialize
 DemandFn = Callable[[np.ndarray, np.ndarray], np.ndarray]
@@ -15,22 +15,23 @@ class Config:
     firms: int = 2
     mrktsz: int = 1000
     caplen:int = 10**8 #hard cap at 100M iterations
+    startingM:int=1
     #Demand features
     mc: int = 1
     a: float = 0.1
     b: float = 0.5
     demand: Optional[DemandFn] = None
-    K: float = 50  # Chance for no innovation to occur
+    K: float = 100  # Chance for no innovation to occur
     delta: float = 0.95
     #Learning parameters
-    learningrate = 0.25
+    learningrate: float = 0.25
     #State variables
     prices_count = 15
     investments_count = 7
     price_interval_margin = 0.02
     investment_interval_margin = 0.1
     #based on above values     _States_                      _actions_             visit each ~X times
-    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) *10
+    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) * 100
     epsilon_decay: float = -1/(explorationlen)
 
     #Holder variables
@@ -40,10 +41,13 @@ class Config:
     MonopolyX: float = None
     FollowerX:float = None
     LeaderX:float=None
-    MonopolyProfit: float = None
+    MonopolyLeaderProfit: float = None
+    MonopolyFollowerProfit: float = None
     FollowerProfit:float = None
     LeaderProfit:float=None
     position_options:list = None
+    CS_Theory:float=0
+    CS_Real:float=0
 
     # Initialize as empty lists (filled on init)
     invest_options: list = field(default_factory=list)
@@ -89,18 +93,19 @@ class Config:
                     
             if ier == 1:
                 leader_price, follower_price = solution
+            else:
+                return ValueError("Price Solution Not found")
 
         #calculate price options
         def MonopolyPrice(p):
             #solve for p in given function (formula derived on paper)
-            formula = ((self.mc*self.a) + (1+self.b)*math.exp(-self.a * p) + 1) / self.a 
+            formula = ((1+ (num_followers+1+self.b)*math.exp(-self.a * p))/self.a) + self.mc
 
             """
             Monopoly Price 
-                 mc*a + (1+b)e^(-a*p) + 1
-            p =  ------------------------
-                            a
-                            
+                 1+ (n+1+b)e^(-a*p)
+            p =  ------------------ + mc
+                         a       
             """
                  
             return formula - p
@@ -123,15 +128,15 @@ class Config:
 
         if self.firms >1:
             D = (num_followers * math.exp(-self.a * follower_price)) + ((1 + self.b) * math.exp(-self.a * leader_price)) + 1
-            Rl = (leader_price - self.mc) * ((1+self.b)*math.exp(-self.a * leader_price))/D
-            Rf = (follower_price - self.mc) * (math.exp(-self.a*follower_price))/D
-            #Scale revenue by fixed market size
-            Rl = Rl * self.mrktsz
-            Rf = Rf * self.mrktsz
+            
 
-            M = self.delta*num_followers / (num_followers+1)**2
-            leader_investment = M*(Rl - Rf +(2*self.K)) - self.K
-            follower_investment = M*(Rl - Rf +(2*self.K))
+            s_L = (((1 + self.b) * math.exp(-self.a * leader_price)) / D) *self.mrktsz
+            s_f = (math.exp(-self.a * follower_price) / D) *self.mrktsz
+            #Profit gap
+            Profit_Gap = ((leader_price - self.mc)*s_L) - ((follower_price - self.mc)*s_f) 
+
+            leader_investment = max(((Profit_Gap + self.K)*(self.delta * num_followers)/(num_followers+1)**2) - self.K,0)
+            follower_investment = max(((Profit_Gap + self.K)*(self.delta * num_followers)/(num_followers+1)**2),0)
 
         monopoly_investment = 0
         if self.firms >1:
@@ -145,17 +150,21 @@ class Config:
         self.invest_options = np.round(self.invest_options,2)
 
         """PROFITS_____________________________________________________________________________ """
-        #using variables from investment calculatinos above,Rl,Rf
-        D = ((1 + self.b) * math.exp(-self.a * monopoly_price)) + 1
-        monopoly_profits = (((monopoly_price - self.mc)*((1+self.b)*math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - monopoly_investment
+        if self.firms>1:
+            D = (num_followers * math.exp(-self.a * follower_price)) + ((1 + self.b) * math.exp(-self.a * leader_price)) + 1
+        else:
+            D =  ((1 + self.b) * math.exp(-self.a * leader_price)) + 1
+
+        monopoly_leader_profits = (((monopoly_price - self.mc)*((1+self.b)*math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - monopoly_investment
+        monopoly_follower_profits = (((monopoly_price - self.mc)*(math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - monopoly_investment
 
         if self.firms>1:
             if self.investments_count == 1:
-                leader_profits = Rl
-                follower_profits = Rf
+                leader_profits = (((leader_price - self.mc)*((1+self.b)*math.exp(-self.a * monopoly_price))/D)*self.mrktsz)
+                follower_profits = (((follower_price - self.mc)*(math.exp(-self.a * monopoly_price))/D)*self.mrktsz) 
             else:
-                leader_profits = Rl - leader_investment
-                follower_profits = Rf - follower_investment
+                leader_profits = (((leader_price - self.mc)*((1+self.b)*math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - leader_investment
+                follower_profits = (((follower_price - self.mc)*(math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - follower_investment
         
             #save all info
             #Prices
@@ -173,7 +182,8 @@ class Config:
             self.Details['Follower Profit'] = follower_profits
             self.LeaderProfit = leader_profits
             self.FollowerProfit = follower_profits
-
+            self.Details['Monopoly Follower Profit'] = monopoly_follower_profits
+            self.MonopolyFollowerProfit = monopoly_follower_profits
 
         #Prices
         self.Details['Monopoly Price'] = monopoly_price
@@ -184,8 +194,8 @@ class Config:
         self.Details['Investment Interval'] = self.invest_options
         self.MonopolyX = monopoly_investment
         #Profit
-        self.Details['Monopoly Profit'] = monopoly_profits
-        self.MonopolyProfit = monopoly_profits
+        self.Details['Monopoly Leader Profit'] = monopoly_leader_profits
+        self.MonopolyLeaderProfit = monopoly_leader_profits
         
 
     def mult_nomial(self, prices:np.ndarray, Leader:np.ndarray):
@@ -199,3 +209,50 @@ class Config:
         MarketShares = Prod_Attractiveness / MarketDemand
 
         return MarketShares
+    
+    def ConsumerSurplus(self,prices:np.ndarray,round:int,IndustryM:int,LeaderIndx):
+        num_followers = self.firms - 1
+        #check if there is a leader currently
+        LeaderExists = np.any(LeaderIndx == 1)
+        LeaderGamePrice = None
+        if LeaderExists:
+            LeaderGamePrice = prices[np.argmax(LeaderIndx)]
+
+        FollowerGamePrices = prices[LeaderIndx ==0]  
+
+        mu = (self.LeaderX + num_followers*self.FollowerX)/(self.LeaderX + num_followers*self.FollowerX + self.K)
+        ExpectedM = self.startingM + mu * round  
+      
+        CS_static_theory = (
+            math.log(
+                1
+                + (1 + self.b) * math.exp(-self.a * self.LeaderP)
+                + num_followers * math.exp(-self.a * self.FollowerP)
+            ) / self.a
+        )
+
+        CS_static_real = (
+            math.log(
+                1
+                + ((1 + self.b) * math.exp(-self.a * LeaderGamePrice) if LeaderExists else 0) 
+                + np.sum(np.exp(-self.a * FollowerGamePrices))
+            ) / self.a
+        )
+
+        CS_period_theory = (
+            (math.log(1 + self.b) / self.a)
+            * (ExpectedM - 1)
+            + CS_static_theory
+        )
+
+        CS_period_real = (
+            (math.log(1 + self.b) / self.a)
+            * (IndustryM - 1)
+            + CS_static_real
+        )
+
+        self.CS_Theory += (self.delta ** round) * CS_period_theory
+        self.CS_Real += (self.delta ** round) * CS_period_real
+        #TODO: Still need continuation value at game end
+
+        return CS_static_theory,CS_static_real,ExpectedM

@@ -1,10 +1,14 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from pathlib import Path
 from matplotlib.ticker import MaxNLocator
 from matplotlib.patches import Patch
-from Helper import block_average_2d,find_pattern
+from matplotlib.lines import Line2D
+import matplotlib.cm as cm
+from Helper import block_average_2d
 import networkx as nx
+from networkx.drawing.nx_agraph import graphviz_layout
+from pathlib import Path
+import pandas as pd
 
 def add_equilibrium_lines(ax, title, config, label_x,linewidth=1.2,size=8,borderWidth=0.5):
     monopoly_colour = '#C62828'
@@ -26,11 +30,12 @@ def add_equilibrium_lines(ax, title, config, label_x,linewidth=1.2,size=8,border
                 ("*Follower", config.FollowerX, follower_colour),
             ])
     elif title.lower() == "profits":
-        reference_values = [("*Monopoly", config.MonopolyProfit, monopoly_colour)]
+        reference_values = [("*Monopoly_L", config.MonopolyLeaderProfit, monopoly_colour)]
         if config.firms > 1:
             reference_values.extend([
                 ("*Leader", config.LeaderProfit, leader_colour),
                 ("*Follower", config.FollowerProfit, follower_colour),
+                ("*Monopoly_F", config.MonopolyFollowerProfit, monopoly_colour),
             ])
     else:
         reference_values = []
@@ -97,7 +102,7 @@ def plotting(
     total_turns = np.concatenate([exp_turns, stat_turns])
 
     smooth_window = max(1, exp_points // 1000)
-    label_x = exp_turns[min(smooth_window, exp_points - 1)]
+    label_x = exp_turns[min(smooth_window, len(exp_turns) - 1)]
 
     fig, axes = plt.subplots(4, 1, figsize=fig_size, sharex=True,gridspec_kw={'height_ratios': [1, 1, 1, 0.25]})
     firm_colors = plt.cm.tab10.colors
@@ -106,6 +111,8 @@ def plotting(
 
         kernel = np.ones(smooth_window) / smooth_window
         smooth_turns = total_turns[smooth_window - 1:]
+        plot_start = smooth_turns[0]
+        plot_end = smooth_turns[-1]
         for firm_index in range(num_firms):
                 smooth_firm = np.convolve(matrix_e[:, firm_index], kernel, mode='valid')
                 firm_color = firm_colors[firm_index % len(firm_colors)]
@@ -127,6 +134,7 @@ def plotting(
 
         ax.set_ylabel(ylabel)
         ax.set_title(title)
+        ax.set_xlim(left=plot_start, right=plot_end)
 
         add_equilibrium_lines(ax, title, config, label_x)
 
@@ -143,6 +151,7 @@ def plotting(
     ax4.set_ylim(-0.1, 1.1)
     ax4.grid(True, alpha=0.25)
     ax4.margins(x=0)
+    ax4.set_xlim(left=plot_start, right=plot_end)
 
     axes[-1].set_xlabel('Turns')
     axes[-1].xaxis.set_major_locator(MaxNLocator(nbins=10, integer=True))
@@ -394,385 +403,400 @@ def plot_visit_counts_3d(
         plt.close(fig)
 
     return save_path
-
-def strategy(price_statlog, invest_statlog, config, save_path="TrainingResults/strategy.png", show=False, dpi=300):
-    print('Strategy')
-
-    prices = np.asarray(price_statlog)
-    investments = np.asarray(invest_statlog)
-    num_firms = config.firms
- 
-    label_x = 0  # x-coordinate for labels
-    Titlesize = 13
-    LabelSize = 11
-    LabelWidth = 1
-    LabelLength = 5
-    
-    # Find pattern
-    Price_Relationships,Price_States = find_pattern(prices)
-    Investment_Relationships,Investment_States = find_pattern(investments)
-
-    # Create subplots
-    fig, axs = plt.subplots(3, 2, figsize=(16, 11), dpi=dpi,constrained_layout=True,gridspec_kw={'height_ratios': [1, 1, 0.25]})
-    ax_price_map = axs[0, 0]
-    ax_invest_map = axs[0, 1]
-    ax_price_actions = axs[1, 0]
-    ax_invest_actions = axs[1, 1]
-    ax_price_lead = axs[2,0]
-    ax_invest_lead = axs[2,1]
-
-    #Place note at bottom of graph
-    note_text = (
-        "Relationship Charts: Show market state-action pairs.\n"
-        "Market States: Separates history into distinct Pricing vs. Investment states for visualization. "
-        "*Note: This differs from the main algorithm, where firms make decisions using only the pricing state.\n"
-        "Anomalies (if present): Indicated by dashed lines on relationship charts and diamonds on action charts."
-    )
-
-    # Place text at x=0.02 (slightly off the left edge) and y=0.01 (very bottom edge)
-    fig.text(
-        0.02, 0.01, note_text, 
-        fontsize=10, 
-        color='gray', 
-        style='italic',
-        verticalalignment='bottom', 
-        horizontalalignment='left'
-    )
-
-    #leave room at the bottom for the text
-    fig.get_layout_engine().set(rect=[0, 0.05, 1, 1]) 
-
-    def strategy_map(relationships, ax, title, node_color):
-        ax.clear()
-        G = nx.DiGraph()
-        max_count = None
-        min_count = None
-        for source, target, count in relationships:
-            G.add_edge(source, target, weight=count)
-
-            #Update max count
-            if max_count:
-                if count>max_count:max_count = count
-            else:
-                max_count = count
-
-            #Update min count
-            if min_count:
-                if count<min_count:min_count = count
-            else:
-                min_count = count
-
-        if len(G.nodes()) > 1:
-            k = 100 / np.sqrt(len(G.nodes()))
-            pos = nx.spring_layout(G, k=k, iterations=10000, seed=42, scale=10)
-            #pos = nx.kamada_kawai_layout(G, scale=3)
-        else:
-            pos = nx.spring_layout(G, seed=42)
-        ax.set_title(title,fontsize=Titlesize)
-
-        #Identify the max outgoing edge for each node
-        max_edges = set()
-        for node in G.nodes():
-            outgoing = G.out_edges(node, data=True)
-            if outgoing:
-                max_edge = max(outgoing, key=lambda x: x[2].get("weight", 0))
-                max_edges.add((max_edge[0], max_edge[1]))
-
-        #Seperate primary and secondary lines
-        primary_edges = []
-        secondary_edges = []
-        for u, v in G.edges():
-            if (u, v) in max_edges:
-                primary_edges.append((u, v))
-            else:
-                secondary_edges.append((u, v))
-
-        #custom text labels for each node
-        node_labels = {node: f"State {node}" for node in G.nodes()}
-
-        #Draw the graph components
-        Node_Size =  5000*(0.95 **(len(G.nodes())-1))
-        Node_Radius = np.sqrt(Node_Size) / 2
-        Label_Size = Node_Radius / 3
-        nx.draw_networkx_nodes(G, pos, ax=ax, node_color=node_color, node_size=Node_Size, edgecolors="black",linewidths=0.75)
-        nx.draw_networkx_labels(G, pos, ax=ax, labels=node_labels, font_size=Label_Size, font_weight="bold")
-        ax.margins(0.2)
-
-        #line settings
-        primary_color = 'black'
-        primary_style = 'solid'
-
-        secondary_color = 'grey'
-        secondary_style = 'dashed'
-
-        count_range = max_count - min_count
-        min_line_size = 3
-        max_line_size = 3
-        line_size_range = max_line_size - min_line_size
-
-        #Main Line
-        primary_connections= []
-        primary_width = []
-        primary_arrowsz = []
-        for u, v in primary_edges:
-            #Scaling line sizes dynamically by count
-            edge_weight = G[u][v]['weight']
-            size_scale = 1 if count_range == 0 else (edge_weight - min_count)/count_range
-
-            line_size = min_line_size + line_size_range*size_scale
-            primary_width.append(line_size)
-            primary_arrowsz.append(line_size+5)
-
-            #Different connection style if arrow point to self
-            if u == v:
-                primary_connections.append("arc3,rad=0.0")
-            else:
-                primary_connections.append("arc3,rad=-0.1")
-        nx.draw_networkx_edges(
-            G, pos, ax=ax,
-            edgelist=primary_edges,
-            width=primary_width,
-            edge_color=primary_color,
-            style=primary_style,
-            arrows=True,
-            arrowsize=primary_arrowsz,
-            arrowstyle="-|>",
-            min_source_margin=Node_Radius,
-            min_target_margin=Node_Radius,
-            connectionstyle=primary_connections
-        )
-        #Secondary line
-        secondary_connections = []
-        secondary_width = []
-        secondary_arrowsz = []
-        for u, v in secondary_edges:
-            edge_weight = G[u][v]['weight']
-            size_scale = 1 if count_range == 0 else (edge_weight - min_count)/count_range
-
-            line_size = min_line_size + line_size_range*size_scale
-            secondary_width.append(line_size)
-            secondary_arrowsz.append(line_size+5)
-            if u == v:
-                secondary_connections.append("arc3,rad=0.0")
-            else:
-                secondary_connections.append("arc3,rad=0.5")
-        nx.draw_networkx_edges(
-            G, pos, ax=ax,
-            edgelist=secondary_edges,
-            width=secondary_width,
-            edge_color=secondary_color,
-            style=secondary_style,
-            arrows=True,
-            arrowsize=secondary_arrowsz,
-            arrowstyle="-|>",
-            min_source_margin=Node_Radius,
-            min_target_margin=Node_Radius,
-            connectionstyle=secondary_connections
-            )      
-
-    def actions_display(Relationships,States,ax,title):
-        ax.clear()
-        Main_path = {
-            first_idx: max((x for x in Relationships if x[0] == first_idx), key=lambda x: x[2])
-            for first_idx in set(x[0] for x in Relationships)
-        }
-        secondary_paths = [x for x in Relationships if Main_path.get(x[0]) != x]
-
-        State_path = [0]
-        for _ in range(len(Main_path)):
-            curr_state = State_path[-1]
-            next_state = Main_path[curr_state][1]
-            State_path.append(next_state)
         
-        Filled_Main_Path =  States[State_path]
-        state_labels = [
-            f"State {num}'" if i == len(State_path) - 1 else f"State {num}" 
-            for i, num in enumerate(State_path)
-        ]
-        #collect anomolies
-        Anomolies = []
-        for i in State_path[:-1]:
-            from_i = [x[1] for x in secondary_paths if x[0] == i]
+def strategy(StateLogs,Firms,config, save_path="TrainingResults/StateEvolv.png", show=False, dpi=300):
 
-            for action in from_i:
-                next_state = State_path[State_path.index(i)+1]
-                Anomolies.append((next_state,action))
+    print('Strategy')
+    num_firms = len(Firms)
+    #Stores the possible actions for each scenario given current state
+    Next_States = {}
+    Next_States_IDs = {}
+    StateMap ={state: str(i)for i, state in enumerate(StateLogs)}
+    for state in StateLogs:
+        StateID = StateMap[state]
+        Possible_Actions= {i: [] for i in range(1, num_firms + 1)}
+        for i,f in enumerate(Firms,start=1):
+            Responses = f.Stat_Responses
+            Price_index = f.decodelog(state)
 
-        Anomoly_XY = [(u, States[v, :-1]) for u, v in Anomolies]
-
-        #Main line
-        for i in range(Filled_Main_Path.shape[1] - 1):
-            line, =ax.plot(state_labels,Filled_Main_Path[:, i], label=f"Firm {i+1}", marker='o',linewidth=2,markersize=3)
-            current_line_color = line.get_color() #use same color for firm scatter points
-
-            firm_average = np.mean(Filled_Main_Path[:, i])
-            x_pos = state_labels[-1] 
-            ax.plot(x_pos, firm_average, marker='<', markersize=8, color=current_line_color)
-            ax.annotate(f'Avg:{firm_average:.2f}',xy=(x_pos, firm_average),xytext=(10, 0),textcoords='offset points',va='center',color=current_line_color,fontweight='light',
-                        bbox=dict(
-                            facecolor='white', 
-                            edgecolor=current_line_color, 
-                            boxstyle='round,pad=0.3'                  
-                        ))
+            #see if the firm is ever the leader and follower for current state (specifically for no investments option, but also acts as a general safety)
+            matches = [k for k in Responses if list(k[:len(Price_index)]) == Price_index]
+            leadership_indicators = [t[-1] for t in matches]
     
+            #possible states if leader or follower
+            FollowerState = tuple(Price_index+[0])
+            LeaderState = tuple(Price_index+[1])
 
-            #Extract anomoly points
-            for tup in Anomoly_XY:
-                val = tup[1][i]
-                x_coord = f"State {tup[0]}'"if tup[0] == 0 else f"State {tup[0]}" 
-                ax.scatter(x_coord,val,facecolors=current_line_color,edgecolors='black',marker="D", s=15, zorder=3,linewidths=1)
+            #Only include if leaderships status exists
+            if 0 in leadership_indicators: FollowerResponse = Responses[FollowerState]
+            if 1 in leadership_indicators: LeaderResponse = Responses[LeaderState]
+                
+            #Add responses to dict key in line with which firm is the potnetial new leader (leadership from market perspective not firm perspective)
+            for key in Possible_Actions.keys():
+                if key == i:
+                    if config.firms==1: #Monopoly case
+                        Possible_Actions[key].append(FollowerResponse)
+                    else:
+                        #only add leader response if it exists
+                        if 1 in leadership_indicators: Possible_Actions[key].append(LeaderResponse)
+                else:
+                    #only add follower response if it exists
+                    if 0 in leadership_indicators: Possible_Actions[key].append(FollowerResponse)
 
-        if title == 'Price Actions':
-            Eq_Type = 'prices'
-        elif title == 'Investment Actions':
-            Eq_Type = 'investments'
+        Market_Actions =  {key: tuple(t[0] for t in value)for key, value in Possible_Actions.items()}
+        
+        Next_States[state] = {}
+        Next_States_IDs[StateID] = {}
+
+        for Leader, tup in Market_Actions.items():
+            tup_sz = len(tup)
+            if tup_sz ==0: #state does not exist
+                continue
+
+            #drop last prices and add new ones
+            New_State = state[tup_sz:] + tup
+       
+            
+
+            #Store pathways (numbers and IDs)
+            Next_States[state][Leader] = New_State
+            try:
+                Next_States_IDs[StateID][Leader] = StateMap[New_State] 
+            except:
+                Next_States_IDs[StateID][Leader] ="\u03b8"
+                print("**Non-visited State**",New_State)
+
+    G = nx.MultiDiGraph()
+
+    # Add edges
+    for state, actions in Next_States_IDs.items():
+        destinations = list(actions.values())
+
+        # Check if all actions lead to the same state
+        if len(set(destinations)) == 1:
+            G.add_edge(
+                state,
+                destinations[0],
+                label="combined"
+            )
         else:
-            raise ValueError('Strategy title does not match')
+            for action, next_state in actions.items():
+                G.add_edge(
+                    state,
+                    next_state,
+                    label=action
+                )
 
-        add_equilibrium_lines(ax, Eq_Type, config, label_x,size=11,linewidth=2)
+    # Position nodes
+    G.graph.update({
+        "ranksep": "3.0 equally",
+        "nodesep": "1.5",
+        "splines": "true",
+        "node": {
+            "width": "0.9",
+            "height": "0.9",
+            "fixedsize": "true",
+        }
+    })
 
-        ax.set_title(title, fontsize=Titlesize)
-        ax.tick_params(axis='both', labelsize=LabelSize,length=LabelLength, width=LabelWidth,labelcolor='black')
-        ax.set_ylabel("Price/Investment", fontsize=LabelSize)
-        ax.tick_params(axis='x', labelrotation=45) 
-
-        return Filled_Main_Path,State_path
+    pos = graphviz_layout(G, prog="dot")
     
-    def leadership_display(MainPath,Index_Path,firms,ax,title):
-        firm_labels = list(range(firms))
-        state_labels = [
-            f"State {num}'" if i == len(Index_Path) - 1 else f"State {num}" 
-            for i, num in enumerate(Index_Path)
+
+    fig = plt.figure(figsize=(14, 8))
+
+    # Draw nodes and labels
+    node_colors = [
+        "tomato" if node == "\u03b8" else "skyblue"
+        for node in G.nodes()
+    ]
+
+    nx.draw_networkx_nodes(G, pos, node_size=1500, node_color=node_colors)
+    nx.draw_networkx_labels(G, pos,font_size=12)
+
+    # Get unique labels
+    labels = set(
+        d["label"]
+        for _, _, _, d in G.edges(data=True, keys=True)
+        if d["label"] != "combined"
+    )
+    colors = cm.get_cmap("Set1", len(labels))
+
+    # Draw edges by label category (which firm is the leader)
+    for i, label in enumerate(sorted(labels)):
+
+        edges = [
+            (u, v, k)
+            for u, v, k, d in G.edges(data=True, keys=True)
+            if d["label"] == label
         ]
 
-        Leader = MainPath[:,-1]
-        ax.scatter(state_labels,Leader, color="black", marker="o", s=25)
-        ax.set_yticks(firm_labels)
-        ax.set_yticklabels([f"Firm {f+1}" for f in firm_labels], fontsize=LabelSize)
-        padding = 0.5 
-        ax.set_ylim(min(firm_labels) - padding, max(firm_labels) + padding)
-        ax.set_title(title, fontsize=Titlesize)
-        ax.tick_params(axis='both', labelsize=LabelSize, length=LabelLength, width=LabelWidth,labelcolor='black')
-        ax.tick_params(axis='x', labelrotation=45) 
+        nx.draw_networkx_edges(
+            G,
+            pos,
+            edgelist=edges,
+            edge_color=[colors(i)],
+            arrows=True,
+            arrowsize=20,
+            arrowstyle='-|>',
+            connectionstyle="arc3,rad=0.15",
+            min_source_margin=25,
+            min_target_margin=25
+        )
 
-    # Run the functions for both pricing and investment
-    strategy_map(Price_Relationships, ax_price_map, "Price Relationships", "lightblue")
-    strategy_map(Investment_Relationships, ax_invest_map, "Investment Relationships", "lightgreen")
 
-    Price_Path,Price_Path_Indexes = actions_display(Price_Relationships,Price_States,ax_price_actions,"Price Actions")
-    Invest_Path,Invest_Path_Indexes = actions_display(Investment_Relationships,Investment_States,ax_invest_actions,"Investment Actions")
-    
-    leadership_display(Price_Path,Price_Path_Indexes,num_firms,ax_price_lead,"Market Leader - Price Pattern")
-    leadership_display(Invest_Path,Invest_Path_Indexes,num_firms,ax_invest_lead,"Market Leader - Investment Pattern")
+    # Draw collapsed edges as dashed black arrows
+    combined_edges = [
+        (u, v, k)
+        for u, v, k, d in G.edges(data=True, keys=True)
+        if d["label"] == "combined"
+    ]
 
-    for ax in axs.flat:
-        for spine in ax.spines.values():
-            spine.set_linewidth(LabelWidth)
+    nx.draw_networkx_edges(
+        G,
+        pos,
+        edgelist=combined_edges,
+        edge_color="black",
+        style="dashed",
+        arrows=True,
+        arrowsize=20,
+        arrowstyle='-|>',
+        connectionstyle="arc3,rad=0.15",
+        min_source_margin=25,
+        min_target_margin=25
+    )
+
+
+    # Legend for actions
+    legend_elements = [
+        Line2D(
+            [0],
+            [0],
+            color=colors(i),
+            lw=2,
+            label=f"Firm {label} Leader"
+        )
+        for i, label in enumerate(sorted(labels))
+    ]
+
+    # Add collapsed transition legend
+    legend_elements.append(
+        Line2D(
+            [0],
+            [0],
+            color="black",
+            lw=2,
+            linestyle="dashed",
+            label="Same outcome"
+        )
+    )
+
+   
+
+    plt.legend(handles=legend_elements)
+
+    plt.axis("off")
+
+    plt.subplots_adjust(bottom=0.12)
+
+    fig.text(
+        x=0.5, 
+        y=0.02, 
+        s="Note: Node IDs represent visited pricing states. Node \u03b8 is hypothetically possible " \
+            "but never visited because zero investment makes that leadership transition impossible.",
+        ha="center",       
+        va="bottom",       
+        fontsize=8,       
+        style="italic",    
+        color="dimgray",
+        wrap=True          # Prevents text cutting off horizontally
+    )
+
 
     if save_path is not None:
         save_path = Path(save_path)
-        fig.savefig(save_path, dpi=dpi, bbox_inches='tight')
+        plt.savefig(save_path, dpi=dpi, bbox_inches='tight')
     if show:
         plt.show()
     else:
-        plt.close(fig)
+        plt.close()
 
-def strategyNew(StateLogs,Firms, config):
+def Welfare_Plot(CS_Theory,CS_Real,M_Theory,M_Real,save_path="TrainingResults/Welfare.png", show=False, dpi=300):
+    print("Welfare")
+    fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(8, 8))
 
-    num_firms = len(Firms)
-    fig, axes = plt.subplots(1, num_firms, figsize=(6 * num_firms, 5))
+    #helper smothing function
+    def smooth_data(data, window):
+        if len(data) < window:
+            return data  # Return original if data is too short
+        return np.convolve(data, np.ones(window)/window, mode='valid')
     
-    #Monopoly case
-    if num_firms == 1:
-        axes = [axes]
+    CS_Real = np.array(CS_Real)
+    CS_Theory = np.array(CS_Theory)
+    windowsz = 100
 
-    for i in range(num_firms):
-        current_ax = axes[i]
-
-        #Stores the possible actions for each scenario given current state
-
-        for state in StateLogs:
-            Possible_Actions= {i: [] for i in range(1, num_firms + 1)}
-            for i,f in enumerate(Firms,start=1):
-                Responses = f.Stat_Responses
-                Price_index = f.decodelog(state)
-
-                Price_options = f.price_options
-                Price_Values = [Price_options[i] for i in Price_index]
-
-                #Possible state if leader or follower
-                LeaderState = tuple(Price_index+[1])
-                FollowerState = tuple(Price_index+[0])
-                LeaderResponse = Responses[LeaderState] 
-                FollowerResponse = Responses[FollowerState]
-                print(LeaderResponse)
-                print(FollowerResponse)
-                
-                #Add responses to dict key in line with which firm is the potnetial new leader (leadership from market perspective not firm perspective)
-                for key in Possible_Actions.keys():
-                    if key == i:
-                        Possible_Actions[key].append(LeaderResponse)
-                    else:
-                        Possible_Actions[key].append(FollowerResponse)
-
-        print(Possible_Actions)
-        exit()
-     
-
-
-
-
-
-
-        print("Current",Price_Values)
-        print("Leader action",)
-  
-
-        exit()
-        
-
-        #want to see all possible states in game when stationarity is achieved
-
-     
-            
-        G = nx.DiGraph()
-
-        # 2. Define nodes and coordinates
-        pos = {
-            "10": (0, 10), "20": (1, 20), "30": (1, 30),
-            "40": (2, 40), "50": (2, 50), "60": (2, 60)
-        }
-        G.add_nodes_from(pos.keys())
-
-        # 3. Define arrows
-        edges = [
-            ("10", "20", "p=0.6"), ("10", "30", "p=0.4"),
-            ("20", "40", "Option A"), ("20", "50", "Option B"),
-            ("30", "50", "Option C"), ("30", "60", "Option D")
-        ]
-        for u, v, label in edges:
-            G.add_edge(u, v, label=label)
-
-        # 4. Configure visual styling
-        node_colors = ["#1f77b4" if n == "10" else "#ff7f0e" for n in G.nodes()]
-
-        # 5. Draw the network components to the TARGET axis
-        nx.draw_networkx_nodes(G, pos, node_color=node_colors, node_size=800, ax=current_ax)
-        nx.draw_networkx_labels(G, pos, font_color="white", font_weight="bold", font_size=10, ax=current_ax)
-        nx.draw_networkx_edges(
-            G, pos, arrowstyle="-|>", arrowsize=15, edge_color="gray", 
-            width=2, node_size=800, ax=current_ax
-        )
-        edge_labels = nx.get_edge_attributes(G, "label")
-        nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels, font_size=8, font_color="red", ax=current_ax)
-
-        # 6. Force axis styling on the TARGET axis
-        current_ax.set_axis_on()
-        current_ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
-        current_ax.set_xlabel(f"Time Step (t) - Firm {i}")
-        current_ax.set_ylabel("State/Value Level")
-        current_ax.grid(True, linestyle="--", alpha=0.5)
-
-    # 7. Render both charts together cleanly at the very end
+    CS_Real_smooth = smooth_data(CS_Real, windowsz)
+    CS_Theory_smooth = smooth_data(CS_Theory,windowsz)
+    
+    # --- Top Graph: CS Plot ---
+    ax1.plot(CS_Theory_smooth, label="CS Theory", linestyle="--", color="blue")
+    ax1.plot(CS_Real_smooth, label="CS Real", linestyle="-", color="darkblue")
+    ax1.set_title("Welfare Comparison: Theory vs Real")
+    ax1.set_ylabel("CS Values")
+    ax1.legend()
+    ax1.grid(True) # Adds a clean background grid
+    
+    # --- Bottom Graph: M Plot ---
+    ax2.plot(M_Theory, label="M Theory", linestyle="--", color="orange")
+    ax2.plot(M_Real, label="M Real", linestyle="-", color="darkorange")
+    ax2.set_title("M Comparison: Theory vs Real")
+    ax2.set_xlabel("Round") # X-axis label only goes on the bottom graph
+    ax2.set_ylabel("M Values")
+    ax2.legend()
+    ax2.grid(True)
+    
+    # 2. Automatically clean up layout spacing so text doesn't overlap
     plt.tight_layout()
-    plt.show()
+    
+    # 3. Display the single window containing both plots
+
+    if save_path is not None:
+        save_path = Path(save_path)
+        plt.savefig(save_path, dpi=dpi, bbox_inches='tight')
+    if show:
+        plt.show()
+    else:
+        plt.close()
+  
+#Save Distinct parquet file to training results with aggregated results
+def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real,M_Theory,M_Real,TotalRounds,config,TestParameter,ParIt):
+    OutputLoc = "TrainingResultsC"
+    data = {"param_id":1, "run_id":1}
+
+    #___Benchmarks___
+    MonopolyB_Price = config.MonopolyP
+    FollowerB_Price = config.FollowerP
+    LeaderB_Price = config.LeaderP
+
+    MonopolyB_Invest = config.MonopolyX
+    FollowerB_Invest = config.FollowerX
+    LeaderB_Invest = config.LeaderX
+
+    MonopolyLB_Profit = config.MonopolyLeaderProfit
+    MonopolyFB_Profit = config.MonopolyFollowerProfit
+    FollowerB_Profit = config.FollowerProfit
+    LeaderB_Profit = config.LeaderProfit
+
+    #_Avg values_ (stat log)
+    price_matrix = np.array(PriceStat)
+    invest_matrix = np.array(InvestStat)
+    profit_matrix = np.array(ProfitStat)
+
+    firm_price_avgs = price_matrix[:, :-1].mean(axis=0)
+    firm_invest_avgs = invest_matrix[:, :-1].mean(axis=0)
+    firm_profit_avgs = profit_matrix[:, :-1].mean(axis=0)
+
+        #Compare to benchmarks
+    Price_V_Monopoly = firm_price_avgs - MonopolyB_Price
+    Price_V_Follower = firm_price_avgs - FollowerB_Price
+    Price_V_Leader = firm_price_avgs - LeaderB_Price
+
+    Invest_V_Monopoly = firm_invest_avgs - MonopolyB_Invest
+    Invest_V_Follower = firm_invest_avgs - FollowerB_Invest
+    Invest_V_Leader = firm_invest_avgs - LeaderB_Invest
+
+    Profit_V_MonopolyL = firm_profit_avgs - MonopolyLB_Profit
+    Profit_V_MonopolyF = firm_profit_avgs - MonopolyFB_Profit
+    Profit_V_Follower = firm_profit_avgs - FollowerB_Profit
+    Profit_V_Leader = firm_profit_avgs - LeaderB_Profit
+
+    #Save results
+    for idx in range(len(Price_V_Monopoly)):
+        data[f'MonopolyPrice_F{idx}'] = Price_V_Monopoly[idx]
+        data[f'LeaderPrice_F{idx}'] = Price_V_Leader[idx]
+        data[f'FollowerPrice_F{idx}'] =Price_V_Follower[idx]
+
+        data[f'MonopolyInvest_F{idx}'] = Invest_V_Monopoly[idx]
+        data[f'LeaderInvest_F{idx}'] = Invest_V_Leader[idx]
+        data[f'FollowerInvest_F{idx}'] =Invest_V_Follower[idx]
+
+        data[f'MonopolyLProfit_F{idx}'] = Profit_V_MonopolyL[idx]
+        data[f'MonopolyFProfit_F{idx}'] = Profit_V_MonopolyF[idx]
+        data[f'LeaderProfit_F{idx}'] = Profit_V_Leader[idx]
+        data[f'FollowerProfit_F{idx}'] = Profit_V_Follower[idx]
+
+    #_Avg when firm x is leader_
+        #_Leader Indexes
+    Leader_Indexes = price_matrix[:, -1]
+    MrktLeaderIndxs = np.unique(Leader_Indexes)
+
+    for leader in MrktLeaderIndxs:
+        mask = Leader_Indexes == leader #mask will be the same for all matrices
+        leader_avg_price = price_matrix[mask][:, :-1].mean(axis=0)
+        leader_avg_invest = invest_matrix[mask][:, :-1].mean(axis=0)
+        leader_avg_profit = profit_matrix[mask][:, :-1].mean(axis=0)
+
+        #Compare to benchmarks
+        LPrice_V_Monopoly = leader_avg_price - MonopolyB_Price
+        LPrice_V_Follower = leader_avg_price - FollowerB_Price
+        LPrice_V_Leader = leader_avg_price - LeaderB_Price
+
+        LInvest_V_Monopoly = leader_avg_invest - MonopolyB_Invest
+        LInvest_V_Follower = leader_avg_invest - FollowerB_Invest
+        LInvest_V_Leader = leader_avg_invest - LeaderB_Invest
+
+        LProfit_V_MonopolyL = leader_avg_profit - MonopolyLB_Profit
+        LProfit_V_MonopolyF = leader_avg_profit - MonopolyFB_Profit
+        LProfit_V_Follower = leader_avg_profit - FollowerB_Profit
+        LProfit_V_Leader = leader_avg_profit - LeaderB_Profit
+
+        #Save results
+
+        for idx in range(len(LPrice_V_Monopoly)):
+            data[f'Leader{leader}_MonopolyPrice_F{idx}'] = LPrice_V_Monopoly[idx]
+            data[f'Leader{leader}_LeaderPrice_F{idx}'] = LPrice_V_Leader[idx]
+            data[f'Leader{leader}_FollowerPrice_F{idx}'] =LPrice_V_Follower[idx]
+
+            data[f'Leader{leader}_MonopolyInvest_F{idx}'] = LInvest_V_Monopoly[idx]
+            data[f'Leader{leader}_LeaderInvest_F{idx}'] = LInvest_V_Leader[idx]
+            data[f'Leader{leader}_FollowerInvest_F{idx}'] =LInvest_V_Follower[idx]
+
+            data[f'Leader{leader}_MonopolyLProfit_F{idx}'] = LProfit_V_MonopolyL[idx]
+            data[f'Leader{leader}_MonopolyFProfit_F{idx}'] = LProfit_V_MonopolyF[idx]
+            data[f'Leader{leader}_LeaderProfit_F{idx}'] = LProfit_V_Leader[idx]
+            data[f'Leader{leader}_FollowerProfit_F{idx}'] = LProfit_V_Follower[idx]
+
+    #_Welfare_
+    CSTheory_Avg = np.mean(CS_Theory)
+    CSReal_Avg = np.mean(CS_Real)
+    CSReal_V_CSTheory = CSReal_Avg - CSTheory_Avg
+
+    MT = pd.Series(M_Theory)
+    MR = pd.Series(M_Real)
+
+    MT_avg_pct_chng = MT.pct_change().mean() * 100
+    MR_avg_pct_chng = MR.pct_change().mean() * 100
+
+    MRPct_V_MTPct = MR_avg_pct_chng - MT_avg_pct_chng
+
+    data[f'ConsumerSurplus'] = CSReal_V_CSTheory
+    data[f'IndustryMPct'] = MRPct_V_MTPct
+
+    #_Strategy_
+    Explength = config.explorationlen
+    ConvergenceTime = TotalRounds - Explength
+    UniqueStates = len(State_logs)
+
+    data[f'ConvergTime'] = ConvergenceTime
+    data[f'UniqueStates'] = UniqueStates
+
+
+    df = pd.DataFrame(data,index=[0])
+
+    # Save as binary parquet 
+    if not TestParameter: #no parameters passed
+        key, value = "test", ""
+    else:
+        key, value = next(iter(TestParameter.items()))
+
+    df.to_parquet(f"{OutputLoc}/run_{key}{value}_{ParIt}.parquet")
+
