@@ -9,6 +9,9 @@ import networkx as nx
 from networkx.drawing.nx_agraph import graphviz_layout
 from pathlib import Path
 import pandas as pd
+from collections import defaultdict
+import seaborn as sns
+import re
 
 def add_equilibrium_lines(ax, title, config, label_x,linewidth=1.2,size=8,borderWidth=0.5):
     monopoly_colour = '#C62828'
@@ -670,7 +673,7 @@ def Welfare_Plot(CS_Theory,CS_Real,M_Theory,M_Real,save_path="TrainingResults/We
 #Save Distinct parquet file to training results with aggregated results
 def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real,M_Theory,M_Real,TotalRounds,config,TestParameter,ParIt):
     OutputLoc = "TrainingResultsC"
-    data = {"param_id":1, "run_id":1}
+    data = {"param_id":TestParameter, "run_id":ParIt}
 
     #___Benchmarks___
     MonopolyB_Price = config.MonopolyP
@@ -695,34 +698,44 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
     firm_invest_avgs = invest_matrix[:, :-1].mean(axis=0)
     firm_profit_avgs = profit_matrix[:, :-1].mean(axis=0)
 
-        #Compare to benchmarks
-    Price_V_Monopoly = firm_price_avgs - MonopolyB_Price
-    Price_V_Follower = firm_price_avgs - FollowerB_Price
-    Price_V_Leader = firm_price_avgs - LeaderB_Price
+    def benchmark_comparison(values, benchmark,Percent=True):
+        if Percent:
+            return (values - benchmark)/benchmark *100, "Percent"
+        return values - benchmark, "Difference"
+        
 
-    Invest_V_Monopoly = firm_invest_avgs - MonopolyB_Invest
-    Invest_V_Follower = firm_invest_avgs - FollowerB_Invest
-    Invest_V_Leader = firm_invest_avgs - LeaderB_Invest
+    def save_result(column, value, unit):
+        data[column] = value
+        data[f"{column}_Unit"] = unit
 
-    Profit_V_MonopolyL = firm_profit_avgs - MonopolyLB_Profit
-    Profit_V_MonopolyF = firm_profit_avgs - MonopolyFB_Profit
-    Profit_V_Follower = firm_profit_avgs - FollowerB_Profit
-    Profit_V_Leader = firm_profit_avgs - LeaderB_Profit
+    #Compare to benchmarks
+    Price_V_Monopoly, Price_V_Monopoly_Unit = benchmark_comparison(firm_price_avgs, MonopolyB_Price)
+    Price_V_Follower, Price_V_Follower_Unit = benchmark_comparison(firm_price_avgs, FollowerB_Price)
+    Price_V_Leader, Price_V_Leader_Unit = benchmark_comparison(firm_price_avgs, LeaderB_Price)
+
+    Invest_V_Monopoly, Invest_V_Monopoly_Unit = benchmark_comparison(firm_invest_avgs, MonopolyB_Invest,False)
+    Invest_V_Follower, Invest_V_Follower_Unit = benchmark_comparison(firm_invest_avgs, FollowerB_Invest,False)
+    Invest_V_Leader, Invest_V_Leader_Unit = benchmark_comparison(firm_invest_avgs, LeaderB_Invest,False)
+
+    Profit_V_MonopolyL, Profit_V_MonopolyL_Unit = benchmark_comparison(firm_profit_avgs, MonopolyLB_Profit)
+    Profit_V_MonopolyF, Profit_V_MonopolyF_Unit = benchmark_comparison(firm_profit_avgs, MonopolyFB_Profit)
+    Profit_V_Follower, Profit_V_Follower_Unit = benchmark_comparison(firm_profit_avgs, FollowerB_Profit)
+    Profit_V_Leader, Profit_V_Leader_Unit = benchmark_comparison(firm_profit_avgs, LeaderB_Profit)
 
     #Save results
     for idx in range(len(Price_V_Monopoly)):
-        data[f'MonopolyPrice_F{idx}'] = Price_V_Monopoly[idx]
-        data[f'LeaderPrice_F{idx}'] = Price_V_Leader[idx]
-        data[f'FollowerPrice_F{idx}'] =Price_V_Follower[idx]
+        save_result(f'MonopolyPrice_F{idx}', Price_V_Monopoly[idx], Price_V_Monopoly_Unit)
+        save_result(f'LeaderPrice_F{idx}', Price_V_Leader[idx], Price_V_Leader_Unit)
+        save_result(f'FollowerPrice_F{idx}', Price_V_Follower[idx], Price_V_Follower_Unit)
 
-        data[f'MonopolyInvest_F{idx}'] = Invest_V_Monopoly[idx]
-        data[f'LeaderInvest_F{idx}'] = Invest_V_Leader[idx]
-        data[f'FollowerInvest_F{idx}'] =Invest_V_Follower[idx]
+        save_result(f'MonopolyInvest_F{idx}', Invest_V_Monopoly[idx], Invest_V_Monopoly_Unit)
+        save_result(f'LeaderInvest_F{idx}', Invest_V_Leader[idx], Invest_V_Leader_Unit)
+        save_result(f'FollowerInvest_F{idx}', Invest_V_Follower[idx], Invest_V_Follower_Unit)
 
-        data[f'MonopolyLProfit_F{idx}'] = Profit_V_MonopolyL[idx]
-        data[f'MonopolyFProfit_F{idx}'] = Profit_V_MonopolyF[idx]
-        data[f'LeaderProfit_F{idx}'] = Profit_V_Leader[idx]
-        data[f'FollowerProfit_F{idx}'] = Profit_V_Follower[idx]
+        save_result(f'MonopolyLProfit_F{idx}', Profit_V_MonopolyL[idx], Profit_V_MonopolyL_Unit)
+        save_result(f'MonopolyFProfit_F{idx}', Profit_V_MonopolyF[idx], Profit_V_MonopolyF_Unit)
+        save_result(f'LeaderProfit_F{idx}', Profit_V_Leader[idx], Profit_V_Leader_Unit)
+        save_result(f'FollowerProfit_F{idx}', Profit_V_Follower[idx], Profit_V_Follower_Unit)
 
     #_Avg when firm x is leader_
         #_Leader Indexes
@@ -736,39 +749,39 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
         leader_avg_profit = profit_matrix[mask][:, :-1].mean(axis=0)
 
         #Compare to benchmarks
-        LPrice_V_Monopoly = leader_avg_price - MonopolyB_Price
-        LPrice_V_Follower = leader_avg_price - FollowerB_Price
-        LPrice_V_Leader = leader_avg_price - LeaderB_Price
+        LPrice_V_Monopoly, LPrice_V_Monopoly_Unit = benchmark_comparison(leader_avg_price, MonopolyB_Price)
+        LPrice_V_Follower, LPrice_V_Follower_Unit = benchmark_comparison(leader_avg_price, FollowerB_Price)
+        LPrice_V_Leader, LPrice_V_Leader_Unit = benchmark_comparison(leader_avg_price, LeaderB_Price)
 
-        LInvest_V_Monopoly = leader_avg_invest - MonopolyB_Invest
-        LInvest_V_Follower = leader_avg_invest - FollowerB_Invest
-        LInvest_V_Leader = leader_avg_invest - LeaderB_Invest
+        LInvest_V_Monopoly, LInvest_V_Monopoly_Unit = benchmark_comparison(leader_avg_invest, MonopolyB_Invest,False)
+        LInvest_V_Follower, LInvest_V_Follower_Unit = benchmark_comparison(leader_avg_invest, FollowerB_Invest,False)
+        LInvest_V_Leader, LInvest_V_Leader_Unit = benchmark_comparison(leader_avg_invest, LeaderB_Invest,False)
 
-        LProfit_V_MonopolyL = leader_avg_profit - MonopolyLB_Profit
-        LProfit_V_MonopolyF = leader_avg_profit - MonopolyFB_Profit
-        LProfit_V_Follower = leader_avg_profit - FollowerB_Profit
-        LProfit_V_Leader = leader_avg_profit - LeaderB_Profit
+        LProfit_V_MonopolyL, LProfit_V_MonopolyL_Unit = benchmark_comparison(leader_avg_profit, MonopolyLB_Profit)
+        LProfit_V_MonopolyF, LProfit_V_MonopolyF_Unit = benchmark_comparison(leader_avg_profit, MonopolyFB_Profit)
+        LProfit_V_Follower, LProfit_V_Follower_Unit = benchmark_comparison(leader_avg_profit, FollowerB_Profit)
+        LProfit_V_Leader, LProfit_V_Leader_Unit = benchmark_comparison(leader_avg_profit, LeaderB_Profit)
 
         #Save results
 
         for idx in range(len(LPrice_V_Monopoly)):
-            data[f'Leader{leader}_MonopolyPrice_F{idx}'] = LPrice_V_Monopoly[idx]
-            data[f'Leader{leader}_LeaderPrice_F{idx}'] = LPrice_V_Leader[idx]
-            data[f'Leader{leader}_FollowerPrice_F{idx}'] =LPrice_V_Follower[idx]
+            save_result(f'Leader{int(leader)}_MonopolyPrice_F{idx}', LPrice_V_Monopoly[idx], LPrice_V_Monopoly_Unit)
+            save_result(f'Leader{int(leader)}_LeaderPrice_F{idx}', LPrice_V_Leader[idx], LPrice_V_Leader_Unit)
+            save_result(f'Leader{int(leader)}_FollowerPrice_F{idx}', LPrice_V_Follower[idx], LPrice_V_Follower_Unit)
 
-            data[f'Leader{leader}_MonopolyInvest_F{idx}'] = LInvest_V_Monopoly[idx]
-            data[f'Leader{leader}_LeaderInvest_F{idx}'] = LInvest_V_Leader[idx]
-            data[f'Leader{leader}_FollowerInvest_F{idx}'] =LInvest_V_Follower[idx]
+            save_result(f'Leader{int(leader)}_MonopolyInvest_F{idx}', LInvest_V_Monopoly[idx], LInvest_V_Monopoly_Unit)
+            save_result(f'Leader{int(leader)}_LeaderInvest_F{idx}', LInvest_V_Leader[idx], LInvest_V_Leader_Unit)
+            save_result(f'Leader{int(leader)}_FollowerInvest_F{idx}', LInvest_V_Follower[idx], LInvest_V_Follower_Unit)
 
-            data[f'Leader{leader}_MonopolyLProfit_F{idx}'] = LProfit_V_MonopolyL[idx]
-            data[f'Leader{leader}_MonopolyFProfit_F{idx}'] = LProfit_V_MonopolyF[idx]
-            data[f'Leader{leader}_LeaderProfit_F{idx}'] = LProfit_V_Leader[idx]
-            data[f'Leader{leader}_FollowerProfit_F{idx}'] = LProfit_V_Follower[idx]
+            save_result(f'Leader{int(leader)}_MonopolyLProfit_F{idx}', LProfit_V_MonopolyL[idx], LProfit_V_MonopolyL_Unit)
+            save_result(f'Leader{int(leader)}_MonopolyFProfit_F{idx}', LProfit_V_MonopolyF[idx], LProfit_V_MonopolyF_Unit)
+            save_result(f'Leader{int(leader)}_LeaderProfit_F{idx}', LProfit_V_Leader[idx], LProfit_V_Leader_Unit)
+            save_result(f'Leader{int(leader)}_FollowerProfit_F{idx}', LProfit_V_Follower[idx], LProfit_V_Follower_Unit)
 
     #_Welfare_
     CSTheory_Avg = np.mean(CS_Theory)
     CSReal_Avg = np.mean(CS_Real)
-    CSReal_V_CSTheory = CSReal_Avg - CSTheory_Avg
+    CSReal_V_CSTheory = (CSReal_Avg - CSTheory_Avg)/CSTheory_Avg *100
 
     MT = pd.Series(M_Theory)
     MR = pd.Series(M_Real)
@@ -799,4 +812,417 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
         key, value = next(iter(TestParameter.items()))
 
     df.to_parquet(f"{OutputLoc}/run_{key}{value}_{ParIt}.parquet")
+
+def PlotParallel(column_groups,value_name,separate_firms=False):
+    #Column Groups example:
+    """
+    column_groups = {
+                "Monopoly": r"^MonopolyPrice_F",
+                "Leader": r"^LeaderPrice_F",
+                "Follower": r"^FollowerPrice_F",
+            }
+    """
+    parquet_folder="TrainingResultsC"
+    y_label = f"{value_name} Difference"
+    title = f"{value_name} Differences (Data - Benchmark)"
+    if separate_firms:
+        save_path = f"TrainingResults/parallel_{value_name.lower()}_firm_boxplots.png"
+    else:
+        save_path = f"TrainingResults/parallel_{value_name.lower()}_boxplots.png"
+
+    colours = {
+            "Monopoly": "#C62828",
+            "Leader": "#1565C0",
+            "Follower": "#2E7D32",
+            "MonopolyL": "#8E24AA",
+            "MonopolyF": "#FB8C00",
+        }
+
+    ParquetFolder = Path(parquet_folder)
+
+    #Group files by tested parameter
+    grouped_files = defaultdict(list)
+    for file in ParquetFolder.glob("*.parquet"):
+        file_name = file.name
+
+        #Safety to make sure file matches naming convention
+        if file_name.startswith("run_") and "_" in file_name:
+            details = file_name.split("_")
+
+            tested_parameter = details[1] #get parameter name and value 
+            df = pd.read_parquet(file) #load parquet information into dataframe obj
+
+            grouped_files[tested_parameter].append(df)
+
+    final_data_dict = {}
+    for param, df_list in grouped_files.items():
+        final_data_dict[param] = pd.concat(df_list, ignore_index=True)
+
+    def parameter_sort_key(parameter):
+        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
+        if number_match:
+            prefix = parameter[:number_match.start()]
+            return (prefix, float(number_match.group()), parameter)
+        return (parameter, float("inf"), parameter)
+
+    parameter_order = sorted(final_data_dict.keys(), key=parameter_sort_key)
+
+    plot_rows = []
+    for key,curr_df in final_data_dict.items():
+        for group_label, column_pattern in column_groups.items():
+            if isinstance(column_pattern, str):
+                matched_columns = curr_df.filter(regex=column_pattern)
+            else:
+                existing_columns = [column for column in column_pattern if column in curr_df.columns]
+                matched_columns = curr_df.loc[:, existing_columns]
+            matched_columns = matched_columns.loc[:, [column for column in matched_columns.columns if not column.endswith("_Unit")]]
+
+            def result_unit(row_index, firm_column):
+                unit_column = f"{firm_column}_Unit"
+                if unit_column in curr_df.columns:
+                    unit = curr_df.at[row_index, unit_column]
+                    if pd.notna(unit):
+                        return unit
+                return "Unknown"
+
+            if separate_firms:
+                for firm_column in matched_columns.columns:
+                    for row_index, value in matched_columns[firm_column].dropna().items():
+                        plot_rows.append({
+                            "Parameter": key,
+                            "Group": group_label,
+                            "Firm": firm_column,
+                            "Unit": result_unit(row_index, firm_column),
+                            value_name: value,
+                        })
+            else:
+                for firm_column in matched_columns.columns:
+                    for row_index, value in matched_columns[firm_column].dropna().items():
+                        plot_rows.append({
+                            "Parameter": key,
+                            "Group": group_label,
+                            "Unit": result_unit(row_index, firm_column),
+                            value_name: value,
+                        })
+
+    combined_values = pd.DataFrame(plot_rows)
+
+    if combined_values.empty:
+        available_columns = sorted({
+            column
+            for curr_df in final_data_dict.values()
+            for column in curr_df.columns
+        })
+        requested_patterns = ", ".join(str(pattern) for pattern in column_groups.values())
+        preview_columns = ", ".join(available_columns[:25])
+        raise ValueError(
+            "No matching columns were found for the requested column groups. "
+            f"Requested patterns: {requested_patterns}. "
+            f"First available columns: {preview_columns}"
+        )
+
+    fig, axes = plt.subplots(
+        nrows=len(column_groups),
+        ncols=1,
+        figsize=(12, 4 * len(column_groups) + 1),
+        sharex=True,
+        sharey=False,
+    )
+    if len(column_groups) == 1:
+        axes = [axes]
+    fig.suptitle(title, fontsize=14)
+
+    for ax, group_label in zip(axes, column_groups.keys()):
+        group_values = combined_values[combined_values["Group"] == group_label]
+        units = group_values["Unit"].dropna().unique()
+        if len(units) == 1:
+            if units[0] == "Percent":
+                axis_label = f"{value_name} (% Difference)"
+            elif units[0] == "Difference":
+                axis_label = f"{value_name} Difference"
+            else:
+                axis_label = f"{value_name} ({units[0]})"
+        elif len(units) > 1:
+            axis_label = f"{value_name} (Mixed Units)"
+        else:
+            axis_label = y_label
+        sns.boxplot(
+            data=group_values,
+            x="Parameter",
+            y=value_name,
+            hue="Firm" if separate_firms else None,
+            order=parameter_order,
+            color=None if separate_firms else colours.get(group_label, "#666666"),
+            ax=ax,
+        )
+        ax.axhline(y=0, color="black", linestyle="--", linewidth=1.0, zorder=1)
+        ax.text(
+            x=-0.45,
+            y=0,
+            s="Benchmark",
+            color="black",
+            va="bottom",
+            ha="left",
+            fontsize=8,
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8, pad=1.5),
+            zorder=3,
+        )
+        if separate_firms:
+            ax.legend(title="Firm", loc="best")
+        ax.set_title(group_label, pad=5)
+        ax.set_xlabel("")
+        ax.set_ylabel(axis_label)
+
+    axes[-1].set_xlabel("Tested Parameter")
+    fig.subplots_adjust(top=0.93, hspace=0.20)
+    plt.savefig(save_path, dpi=300, bbox_inches="tight")
+
+    plt.close(fig)
+
+def PlotWelfareParallel():
+    parquet_folder="TrainingResultsC"
+    save_path_CS = f"TrainingResults/parallel_CS_boxplots.png"
+    save_path_M = f"TrainingResults/parallel_Innovation_boxplots.png"
+
+    ParquetFolder = Path(parquet_folder)
+
+    #Group files by tested parameter
+    grouped_files = defaultdict(list)
+    for file in ParquetFolder.glob("*.parquet"):
+        file_name = file.name
+
+        #Safety to make sure file matches naming convention
+        if file_name.startswith("run_") and "_" in file_name:
+            details = file_name.split("_")
+
+            tested_parameter = details[1] #get parameter name and value 
+            df = pd.read_parquet(file) #load parquet information into dataframe obj
+
+            grouped_files[tested_parameter].append(df)
+
+    final_data_dict = {}
+    for param, df_list in grouped_files.items():
+        final_data_dict[param] = pd.concat(df_list, ignore_index=True)
+
+    def parameter_sort_key(parameter):
+        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
+        if number_match:
+            prefix = parameter[:number_match.start()]
+            return (prefix, float(number_match.group()), parameter)
+        return (parameter, float("inf"), parameter)
+
+    parameter_order = sorted(final_data_dict.keys(), key=parameter_sort_key)
+
+    CS_plot_rows = []
+    M_Val_rows = []
+    for key,curr_df in final_data_dict.items():
+        matched_columns_CS = curr_df.filter(regex='ConsumerSurplus')
+        matched_columns_M = curr_df.filter(regex='IndustryMPct')
+
+        flat_values_CS = matched_columns_CS.to_numpy().flatten()
+        flat_values_M = matched_columns_M.to_numpy().flatten()
+
+        for value in flat_values_CS:
+            CS_plot_rows.append({'Key': key,'Consumer Surplus': value})
+
+        for value in flat_values_M:
+            M_Val_rows.append({
+                'Key': key,
+                'Innovation': value
+            })
+
+    df_melted_CS = pd.DataFrame(CS_plot_rows)
+    df_melted_M = pd.DataFrame(M_Val_rows)
+
+    # Create the Box Plot - consumer surplus
+    plt.figure(figsize=(8, 6))
+    sns.boxplot(
+    x="Key", 
+    y="Consumer Surplus", 
+    data=df_melted_CS, 
+    palette="Set2", 
+    order=parameter_order,
+    hue="Key",      
+    legend=False        
+)
+    plt.axhline(y=0, color="black", linestyle="--", linewidth=1.0, zorder=1)
+    plt.text(
+            x=-0.45,
+            y=0,
+            s="Benchmark",
+            color="black",
+            va="bottom",
+            ha="left",
+            fontsize=8,
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8, pad=1.5),
+            zorder=3,
+        )
+
+    
+    plt.title("Consumer Surplus Distribution Across Keys", fontsize=14)
+    plt.xlabel("Key Type", fontsize=12)
+    plt.ylabel("Consumer Surplus Difference (%)", fontsize=12)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+    plt.savefig(save_path_CS, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Create the Box Plot - Welfare
+    plt.figure(figsize=(8, 6))
+    sns.boxplot(
+    x="Key", 
+    y="Innovation", 
+    data=df_melted_M, 
+    palette="Set2", 
+    order=parameter_order,
+    hue="Key",      
+    legend=False        
+)
+    plt.axhline(y=0, color="black", linestyle="--", linewidth=1.0, zorder=1)
+    plt.text(
+            x=-0.45,
+            y=0,
+            s="Benchmark",
+            color="black",
+            va="bottom",
+            ha="left",
+            fontsize=8,
+            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8, pad=1.5),
+            zorder=3,
+        )
+
+
+    plt.title("Innovation Distribution Across Keys", fontsize=14)
+    plt.xlabel("Key Type", fontsize=12)
+    plt.ylabel("Benchmark Innovation Rate vs Market", fontsize=12)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+    plt.savefig(save_path_M, dpi=300, bbox_inches='tight')
+    plt.close()
+
+def PlotStrategyParallel():
+    parquet_folder="TrainingResultsC"
+    save_path_CS = f"TrainingResults/parallel_convergence_boxplots.png"
+    save_path_M = f"TrainingResults/parallel_states_boxplots.png"
+
+    ParquetFolder = Path(parquet_folder)
+
+    #Group files by tested parameter
+    grouped_files = defaultdict(list)
+    for file in ParquetFolder.glob("*.parquet"):
+        file_name = file.name
+
+        #Safety to make sure file matches naming convention
+        if file_name.startswith("run_") and "_" in file_name:
+            details = file_name.split("_")
+
+            tested_parameter = details[1] #get parameter name and value 
+            df = pd.read_parquet(file) #load parquet information into dataframe obj
+
+            grouped_files[tested_parameter].append(df)
+
+    final_data_dict = {}
+    for param, df_list in grouped_files.items():
+        final_data_dict[param] = pd.concat(df_list, ignore_index=True)
+
+    def parameter_sort_key(parameter):
+        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
+        if number_match:
+            prefix = parameter[:number_match.start()]
+            return (prefix, float(number_match.group()), parameter)
+        return (parameter, float("inf"), parameter)
+
+    parameter_order = sorted(final_data_dict.keys(), key=parameter_sort_key)
+
+    strategy_plot_rows = []
+    states_plot_rows = []
+    for key,curr_df in final_data_dict.items():
+        matched_columns_strategy = curr_df.filter(regex='ConvergTime')
+        matched_columns_states= curr_df.filter(regex='UniqueStates')
+
+        flat_values_strategy = matched_columns_strategy.to_numpy().flatten()
+        flat_values_states = matched_columns_states.to_numpy().flatten()
+
+        for value in flat_values_strategy:
+            strategy_plot_rows.append({'Key': key,'Convergence Time': value})
+
+        for value in flat_values_states:
+            states_plot_rows.append({
+                'Key': key,
+                'Unique States': value
+            })
+
+    df_melted_strategy = pd.DataFrame(strategy_plot_rows)
+    df_melted_states = pd.DataFrame(states_plot_rows)
+
+    # Create the Box Plot - consumer surplus
+    plt.figure(figsize=(8, 6))
+    sns.boxplot(
+    x="Key", 
+    y="Convergence Time", 
+    data=df_melted_strategy, 
+    palette="Set2", 
+    order=parameter_order,
+    hue="Key",      
+    legend=False        
+)
+    
+    plt.title("Market Convergence Time", fontsize=14)
+    plt.xlabel("Key Type", fontsize=12)
+    plt.ylabel("Iterations", fontsize=12)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+    plt.savefig(save_path_CS, dpi=300, bbox_inches='tight')
+    plt.close()
+
+    # Create the Box Plot - Welfare
+    plt.figure(figsize=(8, 6))
+    sns.boxplot(
+    x="Key", 
+    y="Unique States", 
+    data=df_melted_states, 
+    palette="Set2", 
+    order=parameter_order,
+    hue="Key",      
+    legend=False        
+)
+
+    plt.title("Number of Unique States", fontsize=14)
+    plt.xlabel("Key Type", fontsize=12)
+    plt.ylabel("Unique States", fontsize=12)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+
+    plt.savefig(save_path_M, dpi=300, bbox_inches='tight')
+    plt.close()
+
+def Parallel_Outputs(Firms):
+    #Normal plot
+    PlotParallel(column_groups={"Monopoly": r"^MonopolyPrice_F","Leader": r"^LeaderPrice_F","Follower": r"^FollowerPrice_F",},
+                value_name = "Prices")
+    PlotParallel(column_groups={"Monopoly": r"^MonopolyInvest_F","Leader": r"^LeaderInvest_F","Follower": r"^FollowerInvest_F",},
+                value_name = "Investments")
+    PlotParallel(column_groups={"MonopolyL": r"^MonopolyLProfit_F","MonopolyF": r"^MonopolyFProfit_F","Leader": r"^LeaderProfit_F","Follower": r"^FollowerProfit_F"},
+                value_name = "Profits")
+        
+    #Leader Plot
+    for leader in range(Firms):
+        PlotParallel(column_groups={"Monopoly": f"^Leader{leader}_MonopolyPrice_F","Leader": f"^Leader{leader}_LeaderPrice_F","Follower": f"^Leader{leader}_FollowerPrice_F",},
+                    value_name = f"Prices_Leader{leader}",
+                    separate_firms=True)
+        PlotParallel(column_groups={"Monopoly": f"^Leader{leader}_MonopolyInvest_F","Leader": f"^Leader{leader}_LeaderInvest_F","Follower": f"^Leader{leader}_FollowerInvest_F",},
+                    value_name = f"Investments_Leader{leader}",
+                    separate_firms=True)
+        PlotParallel(column_groups={"MonopolyL": f"^Leader{leader}_MonopolyLProfit_F","MonopolyF": f"^Leader{leader}_MonopolyFProfit_F","Leader": f"^Leader{leader}_LeaderProfit_F","Follower": f"^Leader{leader}_FollowerProfit_F"},
+                    value_name = f"Profits_Leader{leader}",
+                    separate_firms=True)
+
+
+
+    #Welfare Plot
+    PlotWelfareParallel()
+
+    #Strategy Plot
+    PlotStrategyParallel()
+
+
 
