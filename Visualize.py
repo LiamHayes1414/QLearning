@@ -671,9 +671,9 @@ def Welfare_Plot(CS_Theory,CS_Real,M_Theory,M_Real,save_path="TrainingResults/We
         plt.close()
   
 #Save Distinct parquet file to training results with aggregated results
-def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real,M_Theory,M_Real,TotalRounds,config,TestParameter,ParIt):
+def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real,M_Theory,M_Real,MarketShares,TotalRounds,config,TestParameter,ParIt):
     OutputLoc = "TrainingResultsC"
-    data = {"param_id":TestParameter, "run_id":ParIt}
+    data = {}
 
     #___Benchmarks___
     MonopolyB_Price = config.MonopolyP
@@ -689,53 +689,75 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
     FollowerB_Profit = config.FollowerProfit
     LeaderB_Profit = config.LeaderProfit
 
+    MonopolyLB_MrktShr = config.MonopolyLeaderMrktShr
+    MonopolyFB_MrktShr =config.MonopolyFollowerMrktShr
+    LeaderB_MrktShr = config.LeaderMrktShr
+    FollowerB_MrktShr = config.FollowerMrktShr
+    
     #_Avg values_ (stat log)
     price_matrix = np.array(PriceStat)
     invest_matrix = np.array(InvestStat)
     profit_matrix = np.array(ProfitStat)
+    mrktshr_matrix = np.array(MarketShares)
 
     firm_price_avgs = price_matrix[:, :-1].mean(axis=0)
     firm_invest_avgs = invest_matrix[:, :-1].mean(axis=0)
     firm_profit_avgs = profit_matrix[:, :-1].mean(axis=0)
+    firm_mrktshr_avg = mrktshr_matrix[:, :-1].mean(axis=0)
 
     def benchmark_comparison(values, benchmark,Percent=True):
         if Percent:
             return (values - benchmark)/benchmark *100, "Percent"
         return values - benchmark, "Difference"
         
-
     def save_result(column, value, unit):
         data[column] = value
         data[f"{column}_Unit"] = unit
 
     #Compare to benchmarks
+    if config.firms>1:
+        Price_V_Follower, Price_V_Follower_Unit = benchmark_comparison(firm_price_avgs, FollowerB_Price)
+        Price_V_Leader, Price_V_Leader_Unit = benchmark_comparison(firm_price_avgs, LeaderB_Price)
+
+        Invest_V_Follower, Invest_V_Follower_Unit = benchmark_comparison(firm_invest_avgs, FollowerB_Invest,False)
+        Invest_V_Leader, Invest_V_Leader_Unit = benchmark_comparison(firm_invest_avgs, LeaderB_Invest,False)
+
+        Profit_V_MonopolyF, Profit_V_MonopolyF_Unit = benchmark_comparison(firm_profit_avgs, MonopolyFB_Profit)
+        Profit_V_Follower, Profit_V_Follower_Unit = benchmark_comparison(firm_profit_avgs, FollowerB_Profit)
+        Profit_V_Leader, Profit_V_Leader_Unit = benchmark_comparison(firm_profit_avgs, LeaderB_Profit)
+
+        MrktShr_V_MonopolyF,MrktShr_V_MonopolyF_Unit = benchmark_comparison(firm_mrktshr_avg, MonopolyFB_MrktShr,False)
+        MrktShr_V_Leader,MrktShr_V_Leader_Unit = benchmark_comparison(firm_mrktshr_avg, LeaderB_MrktShr,False)
+        MrktShr_V_Follower,MrktShr_V_Follower_Unit = benchmark_comparison(firm_mrktshr_avg, FollowerB_MrktShr,False)
+
     Price_V_Monopoly, Price_V_Monopoly_Unit = benchmark_comparison(firm_price_avgs, MonopolyB_Price)
-    Price_V_Follower, Price_V_Follower_Unit = benchmark_comparison(firm_price_avgs, FollowerB_Price)
-    Price_V_Leader, Price_V_Leader_Unit = benchmark_comparison(firm_price_avgs, LeaderB_Price)
-
     Invest_V_Monopoly, Invest_V_Monopoly_Unit = benchmark_comparison(firm_invest_avgs, MonopolyB_Invest,False)
-    Invest_V_Follower, Invest_V_Follower_Unit = benchmark_comparison(firm_invest_avgs, FollowerB_Invest,False)
-    Invest_V_Leader, Invest_V_Leader_Unit = benchmark_comparison(firm_invest_avgs, LeaderB_Invest,False)
-
     Profit_V_MonopolyL, Profit_V_MonopolyL_Unit = benchmark_comparison(firm_profit_avgs, MonopolyLB_Profit)
-    Profit_V_MonopolyF, Profit_V_MonopolyF_Unit = benchmark_comparison(firm_profit_avgs, MonopolyFB_Profit)
-    Profit_V_Follower, Profit_V_Follower_Unit = benchmark_comparison(firm_profit_avgs, FollowerB_Profit)
-    Profit_V_Leader, Profit_V_Leader_Unit = benchmark_comparison(firm_profit_avgs, LeaderB_Profit)
-
+    MrktShr_V_MonopolyL,MrktShr_V_MonopolyL_Unit = benchmark_comparison(firm_mrktshr_avg, MonopolyLB_MrktShr,False)
+    
     #Save results
     for idx in range(len(Price_V_Monopoly)):
+
+        if config.firms>1:
+            save_result(f'LeaderPrice_F{idx}', Price_V_Leader[idx], Price_V_Leader_Unit)
+            save_result(f'FollowerPrice_F{idx}', Price_V_Follower[idx], Price_V_Follower_Unit)
+
+            save_result(f'LeaderInvest_F{idx}', Invest_V_Leader[idx], Invest_V_Leader_Unit)
+            save_result(f'FollowerInvest_F{idx}', Invest_V_Follower[idx], Invest_V_Follower_Unit)
+
+            save_result(f'MonopolyFProfit_F{idx}', Profit_V_MonopolyF[idx], Profit_V_MonopolyF_Unit)
+            save_result(f'LeaderProfit_F{idx}', Profit_V_Leader[idx], Profit_V_Leader_Unit)
+            save_result(f'FollowerProfit_F{idx}', Profit_V_Follower[idx], Profit_V_Follower_Unit)
+
+            save_result(f'MonopolyFMrktShr_F{idx}', MrktShr_V_MonopolyF[idx], MrktShr_V_MonopolyF_Unit)
+            save_result(f'LeaderMrktShr_F{idx}', MrktShr_V_Leader[idx], MrktShr_V_Leader_Unit)
+            save_result(f'FollowerMrktShr_F{idx}', MrktShr_V_Follower[idx], MrktShr_V_Follower_Unit)
+
         save_result(f'MonopolyPrice_F{idx}', Price_V_Monopoly[idx], Price_V_Monopoly_Unit)
-        save_result(f'LeaderPrice_F{idx}', Price_V_Leader[idx], Price_V_Leader_Unit)
-        save_result(f'FollowerPrice_F{idx}', Price_V_Follower[idx], Price_V_Follower_Unit)
-
         save_result(f'MonopolyInvest_F{idx}', Invest_V_Monopoly[idx], Invest_V_Monopoly_Unit)
-        save_result(f'LeaderInvest_F{idx}', Invest_V_Leader[idx], Invest_V_Leader_Unit)
-        save_result(f'FollowerInvest_F{idx}', Invest_V_Follower[idx], Invest_V_Follower_Unit)
-
         save_result(f'MonopolyLProfit_F{idx}', Profit_V_MonopolyL[idx], Profit_V_MonopolyL_Unit)
-        save_result(f'MonopolyFProfit_F{idx}', Profit_V_MonopolyF[idx], Profit_V_MonopolyF_Unit)
-        save_result(f'LeaderProfit_F{idx}', Profit_V_Leader[idx], Profit_V_Leader_Unit)
-        save_result(f'FollowerProfit_F{idx}', Profit_V_Follower[idx], Profit_V_Follower_Unit)
+        save_result(f'MonopolyLMrktShr_F{idx}', MrktShr_V_MonopolyL[idx], MrktShr_V_MonopolyL_Unit)
+        
 
     #_Avg when firm x is leader_
         #_Leader Indexes
@@ -747,37 +769,51 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
         leader_avg_price = price_matrix[mask][:, :-1].mean(axis=0)
         leader_avg_invest = invest_matrix[mask][:, :-1].mean(axis=0)
         leader_avg_profit = profit_matrix[mask][:, :-1].mean(axis=0)
+        leader_avg_mrktshr = mrktshr_matrix[mask][:, :-1].mean(axis=0)
 
         #Compare to benchmarks
+        if config.firms>1:
+            LPrice_V_Follower, LPrice_V_Follower_Unit = benchmark_comparison(leader_avg_price, FollowerB_Price)
+            LPrice_V_Leader, LPrice_V_Leader_Unit = benchmark_comparison(leader_avg_price, LeaderB_Price)
+
+            LInvest_V_Follower, LInvest_V_Follower_Unit = benchmark_comparison(leader_avg_invest, FollowerB_Invest,False)
+            LInvest_V_Leader, LInvest_V_Leader_Unit = benchmark_comparison(leader_avg_invest, LeaderB_Invest,False)
+
+            LProfit_V_MonopolyF, LProfit_V_MonopolyF_Unit = benchmark_comparison(leader_avg_profit, MonopolyFB_Profit)
+            LProfit_V_Follower, LProfit_V_Follower_Unit = benchmark_comparison(leader_avg_profit, FollowerB_Profit)
+            LProfit_V_Leader, LProfit_V_Leader_Unit = benchmark_comparison(leader_avg_profit, LeaderB_Profit)
+
+            LMrktShr_V_MonopolyF,LMrktShr_V_MonopolyF_Unit = benchmark_comparison(leader_avg_mrktshr, MonopolyFB_MrktShr,False)
+            LMrktShr_V_Leader,LMrktShr_V_Leader_Unit = benchmark_comparison(leader_avg_mrktshr, LeaderB_MrktShr,False)
+            LMrktShr_V_Follower,LMrktShr_V_Follower_Unit = benchmark_comparison(leader_avg_mrktshr, FollowerB_MrktShr,False)
+
         LPrice_V_Monopoly, LPrice_V_Monopoly_Unit = benchmark_comparison(leader_avg_price, MonopolyB_Price)
-        LPrice_V_Follower, LPrice_V_Follower_Unit = benchmark_comparison(leader_avg_price, FollowerB_Price)
-        LPrice_V_Leader, LPrice_V_Leader_Unit = benchmark_comparison(leader_avg_price, LeaderB_Price)
-
         LInvest_V_Monopoly, LInvest_V_Monopoly_Unit = benchmark_comparison(leader_avg_invest, MonopolyB_Invest,False)
-        LInvest_V_Follower, LInvest_V_Follower_Unit = benchmark_comparison(leader_avg_invest, FollowerB_Invest,False)
-        LInvest_V_Leader, LInvest_V_Leader_Unit = benchmark_comparison(leader_avg_invest, LeaderB_Invest,False)
-
         LProfit_V_MonopolyL, LProfit_V_MonopolyL_Unit = benchmark_comparison(leader_avg_profit, MonopolyLB_Profit)
-        LProfit_V_MonopolyF, LProfit_V_MonopolyF_Unit = benchmark_comparison(leader_avg_profit, MonopolyFB_Profit)
-        LProfit_V_Follower, LProfit_V_Follower_Unit = benchmark_comparison(leader_avg_profit, FollowerB_Profit)
-        LProfit_V_Leader, LProfit_V_Leader_Unit = benchmark_comparison(leader_avg_profit, LeaderB_Profit)
-
+        LMrktShr_V_MonopolyL,LMrktShr_V_MonopolyL_Unit = benchmark_comparison(leader_avg_mrktshr, MonopolyLB_MrktShr,False)
+    
         #Save results
-
         for idx in range(len(LPrice_V_Monopoly)):
+            if config.firms>1:
+                save_result(f'Leader{int(leader)}_LeaderPrice_F{idx}', LPrice_V_Leader[idx], LPrice_V_Leader_Unit)
+                save_result(f'Leader{int(leader)}_FollowerPrice_F{idx}', LPrice_V_Follower[idx], LPrice_V_Follower_Unit)
+
+                save_result(f'Leader{int(leader)}_LeaderInvest_F{idx}', LInvest_V_Leader[idx], LInvest_V_Leader_Unit)
+                save_result(f'Leader{int(leader)}_FollowerInvest_F{idx}', LInvest_V_Follower[idx], LInvest_V_Follower_Unit)
+
+                save_result(f'Leader{int(leader)}_MonopolyFProfit_F{idx}', LProfit_V_MonopolyF[idx], LProfit_V_MonopolyF_Unit)
+                save_result(f'Leader{int(leader)}_LeaderProfit_F{idx}', LProfit_V_Leader[idx], LProfit_V_Leader_Unit)
+                save_result(f'Leader{int(leader)}_FollowerProfit_F{idx}', LProfit_V_Follower[idx], LProfit_V_Follower_Unit)
+
+                save_result(f'Leader{int(leader)}_MonopolyFMrktShr_F{idx}', LMrktShr_V_MonopolyF[idx], LMrktShr_V_MonopolyF_Unit)
+                save_result(f'Leader{int(leader)}_LeaderMrktShr_F{idx}', LMrktShr_V_Leader[idx], LMrktShr_V_Leader_Unit)
+                save_result(f'Leader{int(leader)}_FollowerMrktShr_F{idx}', LMrktShr_V_Follower[idx], LMrktShr_V_Follower_Unit)
+
             save_result(f'Leader{int(leader)}_MonopolyPrice_F{idx}', LPrice_V_Monopoly[idx], LPrice_V_Monopoly_Unit)
-            save_result(f'Leader{int(leader)}_LeaderPrice_F{idx}', LPrice_V_Leader[idx], LPrice_V_Leader_Unit)
-            save_result(f'Leader{int(leader)}_FollowerPrice_F{idx}', LPrice_V_Follower[idx], LPrice_V_Follower_Unit)
-
             save_result(f'Leader{int(leader)}_MonopolyInvest_F{idx}', LInvest_V_Monopoly[idx], LInvest_V_Monopoly_Unit)
-            save_result(f'Leader{int(leader)}_LeaderInvest_F{idx}', LInvest_V_Leader[idx], LInvest_V_Leader_Unit)
-            save_result(f'Leader{int(leader)}_FollowerInvest_F{idx}', LInvest_V_Follower[idx], LInvest_V_Follower_Unit)
-
             save_result(f'Leader{int(leader)}_MonopolyLProfit_F{idx}', LProfit_V_MonopolyL[idx], LProfit_V_MonopolyL_Unit)
-            save_result(f'Leader{int(leader)}_MonopolyFProfit_F{idx}', LProfit_V_MonopolyF[idx], LProfit_V_MonopolyF_Unit)
-            save_result(f'Leader{int(leader)}_LeaderProfit_F{idx}', LProfit_V_Leader[idx], LProfit_V_Leader_Unit)
-            save_result(f'Leader{int(leader)}_FollowerProfit_F{idx}', LProfit_V_Follower[idx], LProfit_V_Follower_Unit)
-
+            save_result(f'Leader{int(leader)}_MonopolyLMrktShr_F{idx}', LMrktShr_V_MonopolyL[idx], LMrktShr_V_MonopolyL_Unit)
+            
     #_Welfare_
     CSTheory_Avg = np.mean(CS_Theory)
     CSReal_Avg = np.mean(CS_Real)
@@ -1203,6 +1239,8 @@ def Parallel_Outputs(Firms):
                 value_name = "Investments")
     PlotParallel(column_groups={"MonopolyL": r"^MonopolyLProfit_F","MonopolyF": r"^MonopolyFProfit_F","Leader": r"^LeaderProfit_F","Follower": r"^FollowerProfit_F"},
                 value_name = "Profits")
+    PlotParallel(column_groups={"MonopolyL": r"^MonopolyLMrktShr_F","MonopolyF": r"^MonopolyFMrktShr_F","Leader": r"^LeaderMrktShr_F","Follower": r"^FollowerMrktShr_F",},
+                value_name = "MarketShares")
         
     #Leader Plot
     for leader in range(Firms):
@@ -1215,6 +1253,9 @@ def Parallel_Outputs(Firms):
         PlotParallel(column_groups={"MonopolyL": f"^Leader{leader}_MonopolyLProfit_F","MonopolyF": f"^Leader{leader}_MonopolyFProfit_F","Leader": f"^Leader{leader}_LeaderProfit_F","Follower": f"^Leader{leader}_FollowerProfit_F"},
                     value_name = f"Profits_Leader{leader}",
                     separate_firms=True)
+        PlotParallel(column_groups={"MonopolyL": f"^Leader{leader}_MonopolyLMrktShr_F","MonopolyF": f"^Leader{leader}_MonopolyFMrktShr_F","Leader": f"^Leader{leader}_LeaderMrktShr_F","Follower": f"^Leader{leader}_FollowerMrktShr_F",},
+                value_name = f"MarketShares_Leader{leader}",
+                separate_firms=True)
 
 
 
@@ -1223,6 +1264,3 @@ def Parallel_Outputs(Firms):
 
     #Strategy Plot
     PlotStrategyParallel()
-
-
-

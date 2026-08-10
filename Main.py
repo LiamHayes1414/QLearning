@@ -89,6 +89,7 @@ def Simulate(ClusterTest=False,Progress=True):
     Price_statlog = []
     Invest_statlog = []
     State_logs = []
+    MarketShares_Stat = []
 
     CS_Theory = []
     CS_Real = []
@@ -174,15 +175,18 @@ def Simulate(ClusterTest=False,Progress=True):
             Current_Values = np.array(Current_Values)
         
             #Innovation success probabilities
-
             if firms >1:
                 MarketInnovation = np.sum(Investment_Actions) + K
-                Firm_Probabilities = Investment_Actions/MarketInnovation
+                if MarketInnovation == 0:
+                    Firm_Probabilities = np.zeros(firms)
+                else:
+                    Firm_Probabilities = Investment_Actions/MarketInnovation
                 FollowerBest = np.array(Follower_Best)#Only exists in non monopoly case
 
                 #If no innovation, leader remains so leader probability is own investment + no innovation chance
-                NoInnovationProb = K/MarketInnovation * Leader
-                Firm_Probabilities +=NoInnovationProb
+                if K>0:
+                    NoInnovationProb = K/MarketInnovation * Leader
+                    Firm_Probabilities +=NoInnovationProb
                 
                 #If firm is is the current leader use 
                 ValueExpectations= (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest))
@@ -200,14 +204,17 @@ def Simulate(ClusterTest=False,Progress=True):
 
             #Draw next innovation leader - only applies when 2+ firms
             if firms >1:
-                Firm_Prob_Draw = Investment_Actions/MarketInnovation
+                if MarketInnovation == 0:
+                    Firm_Prob_Draw = np.zeros(firms)
+                else:
+                    Firm_Prob_Draw = Investment_Actions/MarketInnovation
+              
                 NoWinnerProb = 1- np.sum(Firm_Prob_Draw)
                 probabilities = np.append(Firm_Prob_Draw, NoWinnerProb)
-
                 outcomes = list(range(0, firms)) + [None]
-            
+
                 winner = random.choices(outcomes, weights=probabilities, k=1)[0]
-            
+
                 if winner is not None:
                     Industry_m+=1
                     for i, f in enumerate(Firms, start=0):
@@ -220,7 +227,7 @@ def Simulate(ClusterTest=False,Progress=True):
         
             #Save data----------------------------------------------------------------------------------------------------
             #Save profits for graphing
-            if Round % Downsample_len == 0 or Round>ExpLen: #downsample within exploration length
+            if (Round % Downsample_len == 0 or Round>ExpLen) and not ClusterTest: #downsample within exploration length
                 if 1 in Leadership: #no leader on first round(and maybe more if no one wins innovation)
                     Profits_explog.append(np.append(Profit,Leadership.index(1)))
                     Price_explog.append(np.append(Price_Actions,Leadership.index(1)))
@@ -234,7 +241,7 @@ def Simulate(ClusterTest=False,Progress=True):
                 if Round>ExpLen:Stat_log_Counter+=1
 
             #consumer surplus
-            if Round % Downsample_len == 0:
+            if Round % Downsample_len == 0 and not ClusterTest:
                 CS_Theory.append(CS_T)
                 CS_Real.append(CS_R)
                 M_Theory.append(M_Expected)
@@ -252,10 +259,12 @@ def Simulate(ClusterTest=False,Progress=True):
                     CS_Real_Stat = []
                     M_Theory_Stat = []
                     M_Real_Stat = []
+                    MarketShares_Stat = []
                 else:
                     Profits_statlog.append(np.append(Profit,Leadership.index(1)))
                     Price_statlog.append(np.append(Price_Actions,Leadership.index(1)))
                     Invest_statlog.append(np.append(Investment_Actions,Leadership.index(1)))
+                    MarketShares_Stat.append(np.append(MarketShares,Leadership.index(1)))
                     #Only append unique states
                     CurrStateTup = tuple(value for sublist in State_log for value in sublist)
                     if CurrStateTup not in State_logs:State_logs.append(CurrStateTup)
@@ -333,7 +342,8 @@ def Simulate(ClusterTest=False,Progress=True):
 
     else:
         Routine_Results(
-            Price_statlog,Invest_statlog,Profits_statlog,State_logs,CS_Theory_Stat,CS_Real_Stat,M_Theory_Stat,M_Real_Stat,Round,
+            Price_statlog,Invest_statlog,Profits_statlog,State_logs,CS_Theory_Stat,CS_Real_Stat,M_Theory_Stat,M_Real_Stat,MarketShares_Stat,Round,
             config,params,args.iteration)
 
-Simulate(True,False)
+#Simulate(True,False)
+Simulate()

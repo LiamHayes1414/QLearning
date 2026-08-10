@@ -57,13 +57,14 @@ class Firm:
             #optimal action selection with random choise on tie
             max_value = np.max(rounded_values)
             max_indices = np.flatnonzero(rounded_values == max_value)
+
             action_index = np.random.choice(max_indices)
 
-            if epsilon==0 and len(max_indices) >1:
-                print("Tie Breaker")
+            #if epsilon==0 and len(max_indices) >1:
+                #print("Tie Breaker")
         price, invest = self.possible_actions[action_index]
 
-        if Optimal:
+        if Optimal and epsilon ==0: #only record if optimal action was taken and experimentation is over
             key = tuple(price_indices) #Full pricing state
             new_val = (price, invest)
 

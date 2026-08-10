@@ -48,6 +48,10 @@ class Config:
     position_options:list = None
     CS_Theory:float=0
     CS_Real:float=0
+    LeaderMrktShr: float = None
+    FollowerMrktShr: float = None
+    MonopolyFollowerMrktShr: float = None
+    MonopolyLeaderMrktShr: float = None
 
     # Initialize as empty lists (filled on init)
     invest_options: list = field(default_factory=list)
@@ -152,19 +156,30 @@ class Config:
         """PROFITS_____________________________________________________________________________ """
         if self.firms>1:
             D = (num_followers * math.exp(-self.a * follower_price)) + ((1 + self.b) * math.exp(-self.a * leader_price)) + 1
-        else:
-            D =  ((1 + self.b) * math.exp(-self.a * leader_price)) + 1
 
-        monopoly_leader_profits = (((monopoly_price - self.mc)*((1+self.b)*math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - monopoly_investment
-        monopoly_follower_profits = (((monopoly_price - self.mc)*(math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - monopoly_investment
+            #Market shares
+            monopoly_follower_marketshare = (math.exp(-self.a * monopoly_price)/D)*self.mrktsz
+            leader_marketshare = ((1+self.b)*math.exp(-self.a * leader_price)/D)*self.mrktsz
+            follower_marketshare = (math.exp(-self.a * follower_price)/D)*self.mrktsz
+
+            monopoly_follower_profits = ((monopoly_price - self.mc)*monopoly_follower_marketshare) - monopoly_investment
+
+        else:
+            D =  ((1 + self.b) * math.exp(-self.a * monopoly_price)) + 1
+
+        #Market Shares - monopoly leader
+        monopoly_leader_marketshare = ((1+self.b)*math.exp(-self.a * monopoly_price)/D)*self.mrktsz
+        
+        monopoly_leader_profits = ((monopoly_price - self.mc)*monopoly_leader_marketshare) - monopoly_investment
+        
 
         if self.firms>1:
             if self.investments_count == 1:
-                leader_profits = (((leader_price - self.mc)*((1+self.b)*math.exp(-self.a * monopoly_price))/D)*self.mrktsz)
-                follower_profits = (((follower_price - self.mc)*(math.exp(-self.a * monopoly_price))/D)*self.mrktsz) 
+                leader_profits = (leader_price - self.mc)*leader_marketshare
+                follower_profits = (follower_price - self.mc)*follower_marketshare
             else:
-                leader_profits = (((leader_price - self.mc)*((1+self.b)*math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - leader_investment
-                follower_profits = (((follower_price - self.mc)*(math.exp(-self.a * monopoly_price))/D)*self.mrktsz) - follower_investment
+                leader_profits = ((leader_price - self.mc)*leader_marketshare) - leader_investment
+                follower_profits = ((follower_price - self.mc)*follower_marketshare) - follower_investment
         
             #save all info
             #Prices
@@ -184,6 +199,13 @@ class Config:
             self.FollowerProfit = follower_profits
             self.Details['Monopoly Follower Profit'] = monopoly_follower_profits
             self.MonopolyFollowerProfit = monopoly_follower_profits
+            #Market Shares
+            self.Details['Leader MarketShr'] = leader_marketshare
+            self.Details['Follower Marketshr'] = follower_marketshare
+            self.LeaderMrktShr = leader_marketshare
+            self.FollowerMrktShr = follower_marketshare
+            self.Details['Monopoly Follower Marketshr'] = monopoly_follower_marketshare
+            self.MonopolyFollowerMrktShr = monopoly_follower_marketshare
 
         #Prices
         self.Details['Monopoly Price'] = monopoly_price
@@ -196,7 +218,9 @@ class Config:
         #Profit
         self.Details['Monopoly Leader Profit'] = monopoly_leader_profits
         self.MonopolyLeaderProfit = monopoly_leader_profits
-        
+        #Market Shares
+        self.Details['Monopoly Leader Marketshr'] = monopoly_leader_marketshare
+        self.MonopolyLeaderMrktShr = monopoly_leader_marketshare
 
     def mult_nomial(self, prices:np.ndarray, Leader:np.ndarray):
         Prod_Attractiveness = np.exp(-self.a*prices)
@@ -220,25 +244,40 @@ class Config:
 
         FollowerGamePrices = prices[LeaderIndx ==0]  
 
-        mu = (self.LeaderX + num_followers*self.FollowerX)/(self.LeaderX + num_followers*self.FollowerX + self.K)
-        ExpectedM = self.startingM + mu * round  
-      
-        CS_static_theory = (
-            math.log(
-                1
-                + (1 + self.b) * math.exp(-self.a * self.LeaderP)
-                + num_followers * math.exp(-self.a * self.FollowerP)
-            ) / self.a
-        )
+        if self.firms>1:
+            mu = (self.LeaderX + num_followers*self.FollowerX)/(self.LeaderX + num_followers*self.FollowerX + self.K)
+            ExpectedM = self.startingM + mu * round  
 
-        CS_static_real = (
-            math.log(
-                1
-                + ((1 + self.b) * math.exp(-self.a * LeaderGamePrice) if LeaderExists else 0) 
-                + np.sum(np.exp(-self.a * FollowerGamePrices))
-            ) / self.a
-        )
+            CS_static_theory = (
+                math.log(
+                    1
+                    + (1 + self.b) * math.exp(-self.a * self.LeaderP)
+                    + num_followers * math.exp(-self.a * self.FollowerP)
+                ) / self.a
+            )
 
+            CS_static_real = (
+                math.log(
+                    1
+                    + ((1 + self.b) * math.exp(-self.a * LeaderGamePrice) if LeaderExists else 0) 
+                    + np.sum(np.exp(-self.a * FollowerGamePrices))
+                ) / self.a
+            )
+            
+        else: #monopoly
+            ExpectedM = 0
+
+            CS_static_theory = (
+                math.log(
+                    1
+                    + (1 + self.b) * math.exp(-self.a * self.MonopolyP)
+                ) / self.a
+            )
+
+            CS_static_real = (math.log(1+ (1 + self.b) * math.exp(-self.a * LeaderGamePrice)) / self.a)
+        
+  
+        
         CS_period_theory = (
             (math.log(1 + self.b) / self.a)
             * (ExpectedM - 1)
