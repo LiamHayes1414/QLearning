@@ -762,7 +762,8 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
     #_Avg when firm x is leader_
         #_Leader Indexes
     Leader_Indexes = price_matrix[:, -1]
-    MrktLeaderIndxs = np.unique(Leader_Indexes)
+    cleaned_indexes = [x for x in Leader_Indexes if x is not None]
+    MrktLeaderIndxs = np.unique(cleaned_indexes)
 
     for leader in MrktLeaderIndxs:
         mask = Leader_Indexes == leader #mask will be the same for all matrices
@@ -822,10 +823,10 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
     MT = pd.Series(M_Theory)
     MR = pd.Series(M_Real)
 
-    MT_avg_pct_chng = MT.pct_change().mean() * 100
-    MR_avg_pct_chng = MR.pct_change().mean() * 100
+    MT_avg_pct_chng = MT.pct_change().mean()
+    MR_avg_pct_chng = MR.pct_change().mean() 
 
-    MRPct_V_MTPct = MR_avg_pct_chng - MT_avg_pct_chng
+    MRPct_V_MTPct = (MR_avg_pct_chng - MT_avg_pct_chng)/MT_avg_pct_chng *100 if MT_avg_pct_chng !=0 else 0
 
     data[f'ConsumerSurplus'] = CSReal_V_CSTheory
     data[f'IndustryMPct'] = MRPct_V_MTPct
@@ -1095,7 +1096,7 @@ def PlotWelfareParallel():
         )
 
     
-    plt.title("Consumer Surplus Distribution Across Keys", fontsize=14)
+    plt.title("Consumer Surplus Distribution", fontsize=14)
     plt.xlabel("Key Type", fontsize=12)
     plt.ylabel("Consumer Surplus Difference (%)", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
@@ -1128,9 +1129,9 @@ def PlotWelfareParallel():
         )
 
 
-    plt.title("Innovation Distribution Across Keys", fontsize=14)
+    plt.title("Innovation Rate Distribution", fontsize=14)
     plt.xlabel("Key Type", fontsize=12)
-    plt.ylabel("Benchmark Innovation Rate vs Market", fontsize=12)
+    plt.ylabel("Benchmark Innovation Rate vs Market (%)", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
     plt.savefig(save_path_M, dpi=300, bbox_inches='tight')

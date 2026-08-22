@@ -1,3 +1,1 @@
-Build pipeline for testing various settings (a,b,firms etc) in one run
-Cs continuation value for game end
-Fix excess points recoreded after exp end
+Remove Firm count from parallel outputs function in visualize

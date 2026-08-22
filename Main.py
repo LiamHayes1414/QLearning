@@ -16,15 +16,22 @@ def Simulate(ClusterTest=False,Progress=True):
     parser = argparse.ArgumentParser()
 
     # Parse command-line inputs
+        #Game parameters
     parser.add_argument("--firms", type=int, default=None)
     parser.add_argument("--lags", type=int, default=None)
     parser.add_argument("--K", type=int, default=None)
     parser.add_argument("--delta", type=float, default=None)
     parser.add_argument("--epsilon_decay", type=float, default=None)
     parser.add_argument("--learningrate", type=float, default=None)
+    parser.add_argument("--beta",type=float,default=None)
+    parser.add_argument("--alpha",type=float,default=None)
+    parser.add_argument("--mrktsz",type=float,default=None)
+    parser.add_argument("--mc",type=float,default=None)
+
+        #simulation details
     parser.add_argument("--plot", type=float, default=False)
     parser.add_argument("--iteration",type=int, default=0)
-
+    
     args = parser.parse_args()
 
     params = {
@@ -33,7 +40,11 @@ def Simulate(ClusterTest=False,Progress=True):
         "K": args.K,
         "delta": args.delta,
         "epsilon_decay": args.epsilon_decay,
-        "learningrate": args.learningrate
+        "learningrate": args.learningrate,
+        "beta":args.beta,
+        "alpha":args.alpha,
+        "mrktsz":args.mrktsz,
+        "mc":args.mc
     }
 
     # Remove None values
@@ -227,15 +238,13 @@ def Simulate(ClusterTest=False,Progress=True):
         
             #Save data----------------------------------------------------------------------------------------------------
             #Save profits for graphing
+            
+            LeaderIndex = Leadership.index(1) if 1 in Leadership else None
             if (Round % Downsample_len == 0 or Round>ExpLen) and not ClusterTest: #downsample within exploration length
-                if 1 in Leadership: #no leader on first round(and maybe more if no one wins innovation)
-                    Profits_explog.append(np.append(Profit,Leadership.index(1)))
-                    Price_explog.append(np.append(Price_Actions,Leadership.index(1)))
-                    Invest_explog.append(np.append(Investment_Actions,Leadership.index(1)))
-                else:
-                    Profits_explog.append(np.append(Profit,None))
-                    Price_explog.append(np.append(Price_Actions,None))
-                    Invest_explog.append(np.append(Investment_Actions,None))
+                Profits_explog.append(np.append(Profit,LeaderIndex))
+                Price_explog.append(np.append(Price_Actions,LeaderIndex))
+                Invest_explog.append(np.append(Investment_Actions,LeaderIndex))
+             
                 
                 #See how many entries are recorded past experimentation (not downsampled)
                 if Round>ExpLen:Stat_log_Counter+=1
@@ -261,10 +270,10 @@ def Simulate(ClusterTest=False,Progress=True):
                     M_Real_Stat = []
                     MarketShares_Stat = []
                 else:
-                    Profits_statlog.append(np.append(Profit,Leadership.index(1)))
-                    Price_statlog.append(np.append(Price_Actions,Leadership.index(1)))
-                    Invest_statlog.append(np.append(Investment_Actions,Leadership.index(1)))
-                    MarketShares_Stat.append(np.append(MarketShares,Leadership.index(1)))
+                    Profits_statlog.append(np.append(Profit,LeaderIndex))
+                    Price_statlog.append(np.append(Price_Actions,LeaderIndex))
+                    Invest_statlog.append(np.append(Investment_Actions,LeaderIndex))
+                    MarketShares_Stat.append(np.append(MarketShares,LeaderIndex))
                     #Only append unique states
                     CurrStateTup = tuple(value for sublist in State_log for value in sublist)
                     if CurrStateTup not in State_logs:State_logs.append(CurrStateTup)
@@ -345,5 +354,5 @@ def Simulate(ClusterTest=False,Progress=True):
             Price_statlog,Invest_statlog,Profits_statlog,State_logs,CS_Theory_Stat,CS_Real_Stat,M_Theory_Stat,M_Real_Stat,MarketShares_Stat,Round,
             config,params,args.iteration)
 
-#Simulate(True,False)
-Simulate()
+Simulate(True,False) #cluster
+#Simulate() # local
