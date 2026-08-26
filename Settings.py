@@ -14,7 +14,7 @@ class Config:
     lags: int = 1
     firms: int = 2
     mrktsz: int = 1000
-    caplen:int = 10**8 #hard cap at 100M iterations
+    caplen:int = 10**9 #hard cap at 1B iterations
     startingM:int=1
     #Demand features
     mc: int = 1
@@ -166,7 +166,7 @@ class Config:
             monopoly_follower_profits = ((monopoly_price - self.mc)*monopoly_follower_marketshare) - monopoly_investment
 
         else:
-            D =  ((1 + self.b) * math.exp(-self.a * monopoly_price)) + 1
+            MonopolyD =  ((1 + self.b) * math.exp(-self.a * monopoly_price)) + 1
 
         #Market Shares - monopoly leader
         monopoly_leader_marketshare = ((1+self.b)*math.exp(-self.a * monopoly_price)/MonopolyD)*self.mrktsz

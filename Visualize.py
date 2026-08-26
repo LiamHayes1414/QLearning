@@ -904,6 +904,22 @@ def PlotParallel(column_groups,value_name,separate_firms=False):
 
     parameter_order = sorted(final_data_dict.keys(), key=parameter_sort_key)
 
+    def parameter_display_parts(parameter):
+        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
+        if not number_match:
+            return parameter, ""
+        return number_match.group(), parameter[:number_match.start()]
+
+    parameter_labels = [parameter_display_parts(parameter)[0] for parameter in parameter_order]
+    parameter_prefixes = {
+        parameter_display_parts(parameter)[1]
+        for parameter in parameter_order
+        if parameter_display_parts(parameter)[1]
+    }
+    if len(parameter_prefixes) == 1:
+        tested_parameter = next(iter(parameter_prefixes))
+        title = f"{title} by {tested_parameter}"
+
     plot_rows = []
     for key,curr_df in final_data_dict.items():
         for group_label, column_pattern in column_groups.items():
@@ -1009,6 +1025,8 @@ def PlotParallel(column_groups,value_name,separate_firms=False):
         ax.set_title(group_label, pad=5)
         ax.set_xlabel("")
         ax.set_ylabel(axis_label)
+        ax.set_xticks(range(len(parameter_order)))
+        ax.set_xticklabels(parameter_labels)
 
     axes[-1].set_xlabel("Tested Parameter")
     fig.subplots_adjust(top=0.93, hspace=0.20)
@@ -1049,6 +1067,19 @@ def PlotWelfareParallel():
         return (parameter, float("inf"), parameter)
 
     parameter_order = sorted(final_data_dict.keys(), key=parameter_sort_key)
+
+    def parameter_display_parts(parameter):
+        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
+        if not number_match:
+            return parameter, ""
+        return number_match.group(), parameter[:number_match.start()]
+
+    parameter_parts = [parameter_display_parts(parameter) for parameter in parameter_order]
+    parameter_labels = [label for label, _ in parameter_parts]
+    parameter_prefixes = {prefix for _, prefix in parameter_parts if prefix}
+    title_suffix = ""
+    if len(parameter_prefixes) == 1:
+        title_suffix = f" by {next(iter(parameter_prefixes))}"
 
     CS_plot_rows = []
     M_Val_rows = []
@@ -1096,8 +1127,9 @@ def PlotWelfareParallel():
         )
 
     
-    plt.title("Consumer Surplus Distribution", fontsize=14)
-    plt.xlabel("Key Type", fontsize=12)
+    plt.xticks(range(len(parameter_order)), parameter_labels)
+    plt.title(f"Consumer Surplus Distribution{title_suffix}", fontsize=14)
+    plt.xlabel("Tested Parameter", fontsize=12)
     plt.ylabel("Consumer Surplus Difference (%)", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
@@ -1129,8 +1161,9 @@ def PlotWelfareParallel():
         )
 
 
-    plt.title("Innovation Rate Distribution", fontsize=14)
-    plt.xlabel("Key Type", fontsize=12)
+    plt.xticks(range(len(parameter_order)), parameter_labels)
+    plt.title(f"Innovation Rate Distribution{title_suffix}", fontsize=14)
+    plt.xlabel("Tested Parameter", fontsize=12)
     plt.ylabel("Benchmark Innovation Rate vs Market (%)", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
@@ -1171,6 +1204,19 @@ def PlotStrategyParallel():
 
     parameter_order = sorted(final_data_dict.keys(), key=parameter_sort_key)
 
+    def parameter_display_parts(parameter):
+        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
+        if not number_match:
+            return parameter, ""
+        return number_match.group(), parameter[:number_match.start()]
+
+    parameter_parts = [parameter_display_parts(parameter) for parameter in parameter_order]
+    parameter_labels = [label for label, _ in parameter_parts]
+    parameter_prefixes = {prefix for _, prefix in parameter_parts if prefix}
+    title_suffix = ""
+    if len(parameter_prefixes) == 1:
+        title_suffix = f" by {next(iter(parameter_prefixes))}"
+
     strategy_plot_rows = []
     states_plot_rows = []
     for key,curr_df in final_data_dict.items():
@@ -1204,8 +1250,9 @@ def PlotStrategyParallel():
     legend=False        
 )
     
-    plt.title("Market Convergence Time", fontsize=14)
-    plt.xlabel("Key Type", fontsize=12)
+    plt.xticks(range(len(parameter_order)), parameter_labels)
+    plt.title(f"Market Convergence Time{title_suffix}", fontsize=14)
+    plt.xlabel("Tested Parameter", fontsize=12)
     plt.ylabel("Iterations", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
@@ -1224,15 +1271,17 @@ def PlotStrategyParallel():
     legend=False        
 )
 
-    plt.title("Number of Unique States", fontsize=14)
-    plt.xlabel("Key Type", fontsize=12)
+    plt.xticks(range(len(parameter_order)), parameter_labels)
+    plt.title(f"Number of Unique States{title_suffix}", fontsize=14)
+    plt.xlabel("Tested Parameter", fontsize=12)
     plt.ylabel("Unique States", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
     plt.savefig(save_path_M, dpi=300, bbox_inches='tight')
     plt.close()
 
-def Parallel_Outputs(Firms):
+def Parallel_Outputs(MaxFirms):
+
     #Normal plot
     PlotParallel(column_groups={"Monopoly": r"^MonopolyPrice_F","Leader": r"^LeaderPrice_F","Follower": r"^FollowerPrice_F",},
                 value_name = "Prices")
@@ -1244,7 +1293,7 @@ def Parallel_Outputs(Firms):
                 value_name = "MarketShares")
         
     #Leader Plot
-    for leader in range(Firms):
+    for leader in range(MaxFirms):
         PlotParallel(column_groups={"Monopoly": f"^Leader{leader}_MonopolyPrice_F","Leader": f"^Leader{leader}_LeaderPrice_F","Follower": f"^Leader{leader}_FollowerPrice_F",},
                     value_name = f"Prices_Leader{leader}",
                     separate_firms=True)
@@ -1257,7 +1306,6 @@ def Parallel_Outputs(Firms):
         PlotParallel(column_groups={"MonopolyL": f"^Leader{leader}_MonopolyLMrktShr_F","MonopolyF": f"^Leader{leader}_MonopolyFMrktShr_F","Leader": f"^Leader{leader}_LeaderMrktShr_F","Follower": f"^Leader{leader}_FollowerMrktShr_F",},
                 value_name = f"MarketShares_Leader{leader}",
                 separate_firms=True)
-
 
 
     #Welfare Plot

@@ -20,8 +20,6 @@ def Simulate(ClusterTest=False,Progress=True):
     parser.add_argument("--firms", type=int, default=None)
     parser.add_argument("--lags", type=int, default=None)
     parser.add_argument("--K", type=int, default=None)
-    parser.add_argument("--delta", type=float, default=None)
-    parser.add_argument("--epsilon_decay", type=float, default=None)
     parser.add_argument("--learningrate", type=float, default=None)
     parser.add_argument("--beta",type=float,default=None)
     parser.add_argument("--alpha",type=float,default=None)
@@ -38,8 +36,6 @@ def Simulate(ClusterTest=False,Progress=True):
         "firms": args.firms,
         "lags": args.lags,
         "K": args.K,
-        "delta": args.delta,
-        "epsilon_decay": args.epsilon_decay,
         "learningrate": args.learningrate,
         "beta":args.beta,
         "alpha":args.alpha,
@@ -356,3 +352,4 @@ def Simulate(ClusterTest=False,Progress=True):
 
 Simulate(True,False) #cluster
 #Simulate() # local
+#Simulate(True,True) #cluster progress
