@@ -28,16 +28,20 @@ class Firm:
         price_indices = np.searchsorted(self.price_options, clean_prices)
         return list(price_indices)
 
-    def Action(self, log, epsilon):
+    def Action(self, log, epsilon,Leadership=None):
 
         price_indices = self.decodelog(log)
 
         #add position indicator (currently leader or follower)
-        if self.config.firms>1:
-            price_indices.append(int(self.Leader))
-        elif self.config.firms == 1:
-            #only 1 leadership option which is at index 0
-            price_indices.append(0)
+        if Leadership==None:
+            if self.config.firms>1:
+                price_indices.append(int(self.Leader))
+            elif self.config.firms == 1:
+                #only 1 leadership option which is at index 0
+                price_indices.append(0)
+        elif Leadership is not None:
+            price_indices.append(int(Leadership))
+
     
         state_index = tuple(price_indices)
         state_action_values = self.Q_matrix[state_index]
@@ -123,8 +127,6 @@ class Firm:
         #Update visit count matrix
         self.visit_counts[state_index][action_index] += 1
 
-        #Safety to make sure Q matrix updates are also consistent (along with stat_dict)
-        if np.round(Prev_Val, 4) != Value: self.Stationarity_Counter = 0
 
 
 

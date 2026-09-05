@@ -14,7 +14,7 @@ class Config:
     lags: int = 1
     firms: int = 2
     mrktsz: int = 1000
-    caplen:int = 10**9 #hard cap at 1B iterations
+    caplen:int = 10**8 #hard cap at 100MM iterations
     startingM:int=1
     #Demand features
     mc: int = 1

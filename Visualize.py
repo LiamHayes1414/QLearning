@@ -623,6 +623,361 @@ def strategy(StateLogs,Firms,config, save_path="TrainingResults/StateEvolv.png",
     else:
         plt.close()
 
+def reactions(Firms,Possible_States,Possible_Actions,config):
+    print("Reactions")
+
+    def StateUpdate(firm,state,Prices):
+        PrevStatePrices = list(state[:-1])
+        PrevStatePrices.extend(Prices)
+        del PrevStatePrices[:len(Prices)]
+        state_index = firm.decodelog(PrevStatePrices)
+
+        LeaderIndex = state_index.copy()
+        FollowerIndex = state_index.copy()
+
+        LeaderIndex.append(1)
+        FollowerIndex.append(0)
+
+        return LeaderIndex,FollowerIndex
+    
+    MainFirm = Firms[0]
+    Price_Chosen = []
+    Price_Optimal = []
+    Investment_Chosen = []
+    Investment_Optimal = []
+    Deviation_Costs = []
+
+    for state in Possible_States:
+        #_______________Optimal actions for the given state (all firms)__________________
+        OptimalInvestments = []
+        OptimalPrices = []
+        #Hard coded - since state is from view of firm 1, here for simplicity i assume that if firm 1 is not the leader then it is firm 2 - even if there are 3+ firms
+        if state[-1] == 1:
+            mrktleadr = 0
+        else:
+            mrktleadr = 1
+            
+        for i,firm in enumerate(Firms):
+            if i == mrktleadr:
+                Action = firm.Action(state[:-1], 0,Leadership=1) 
+            else:
+                Action = firm.Action(state[:-1], 0,Leadership=0)
+            OptimalInvestments.append(Action[1])
+            OptimalPrices.append(Action[0])
+        MainPrice = OptimalPrices[0]
+        MainInvestment = OptimalInvestments[0]
+
+        #Based on optimal actions taken above, the next optimal state would be the following (either firm is leader or follower)
+        LeaderIndex_opt,FollowerIndex_opt= StateUpdate(MainFirm,state,OptimalPrices)
+
+        #In the next optimal state found in the line above, what are the best possible values I can achieve (leader or follower)
+        LeaderValue_opt = max(MainFirm.Q_matrix[tuple(LeaderIndex_opt)])
+        FollowerValue_opt = max(MainFirm.Q_matrix[tuple(FollowerIndex_opt)])
+
+        #Probability that firm i will be leader in the next state
+        if mrktleadr==0:
+            LeadershipProb_opt = (OptimalInvestments[0]+config.K)/(sum(OptimalInvestments)+config.K)
+        else:
+            LeadershipProb_opt = (OptimalInvestments[0])/(sum(OptimalInvestments)+config.K)
+
+        ExpectedValue_opt = (LeadershipProb_opt*LeaderValue_opt) + (FollowerValue_opt*(1-LeadershipProb_opt))
+
+        #Save a copy of the optimal price actions for counter factual    
+        ChosenPrices = OptimalPrices.copy()
+        ChosenInvestments = OptimalInvestments.copy() 
+
+        for action in Possible_Actions:
+            #New hypothetical pricing and investment
+            ChosenPrices[0] = action[0]
+            ChosenInvestments[0] = action[1]
+
+            #hypothetical state
+            LeaderIndex_hyp,FollowerIndex_hyp= StateUpdate(MainFirm,state,ChosenPrices)
+
+            #hypothetical values (leader or follower)
+            LeaderValue_hyp = max(MainFirm.Q_matrix[tuple(LeaderIndex_hyp)])
+            FollowerValue_hyp = max(MainFirm.Q_matrix[tuple(FollowerIndex_hyp)])
+
+            #Calculate Probability that firm i will be leader
+            if mrktleadr==0:
+                LeadershipProb_hyp = (action[1]+config.K)/(sum(OptimalInvestments)+config.K)
+            else:
+                LeadershipProb_hyp = (action[1])/(sum(OptimalInvestments)+config.K)
+            """^Leader has additional chance to remain leader if no innovation occurs (+k)"""
+
+            ExpectedValue_hyp = (LeadershipProb_hyp*LeaderValue_hyp) + (FollowerValue_hyp*(1-LeadershipProb_hyp))
+
+            DeviationCost = ExpectedValue_hyp -ExpectedValue_opt
+
+            #Save Results
+            Price_Chosen.append(action[0])
+            Price_Optimal.append(MainPrice)
+            Investment_Chosen.append(action[1])
+            Investment_Optimal.append(MainInvestment)
+            Deviation_Costs.append(DeviationCost)
+
+    Price_Deviation = (np.array(Price_Chosen) - np.array(Price_Optimal))
+
+    Investment_Deviation = (np.array(Investment_Chosen) - np.array(Investment_Optimal))
+
+    Deviation_Costs = np.array(Deviation_Costs)
+
+    Leader_Nash_Price = config.LeaderP
+    Follower_Nash_Price = config.FollowerP
+    Leader_Nash_Investment = config.LeaderX
+    Follower_Nash_Investment = config.FollowerX
+
+
+    # =========================================================
+    # COLOUR PRICE POINTS BASED ON CHOSEN PRICE
+    # =========================================================
+
+    price_colours = np.where(
+        np.array(Price_Chosen) > Leader_Nash_Price,
+        'red',
+        np.where(
+            np.array(Price_Chosen) >= Follower_Nash_Price,
+            'blue',
+            'green'
+        )
+    )
+
+
+    # =========================================================
+    # COLOUR INVESTMENT POINTS
+    # =========================================================
+    # Replace these with your investment benchmarks if you have them
+
+    investment_colours = np.where(
+        np.array(Investment_Chosen) < Leader_Nash_Investment,
+        'red',
+        np.where(
+            np.array(Investment_Chosen) <= Follower_Nash_Investment,
+            'blue',
+            'green'
+        )
+    )
+
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 6))
+
+
+    # =========================================================
+    # PRICE
+    # =========================================================
+
+    ax1.scatter(
+        Price_Deviation,
+        Deviation_Costs,
+        c=price_colours,
+        s=8,
+        alpha=0.25
+    )
+
+    # Zero deviation
+    ax1.axvline(
+        0,
+        color='orange',
+        linestyle='--',
+        linewidth=2
+    )
+
+    # ----- Trend before zero -----
+
+    mask_before = Price_Deviation < 0
+
+    coef_before = np.polyfit(
+        Price_Deviation[mask_before],
+        Deviation_Costs[mask_before],
+        1
+    )
+
+    x_before = np.linspace(
+        Price_Deviation[mask_before].min(),
+        0,
+        100
+    )
+
+    ax1.plot(
+        x_before,
+        np.poly1d(coef_before)(x_before),
+        color='black',
+        linewidth=2
+    )
+
+
+    # ----- Trend after zero -----
+
+    mask_after = Price_Deviation > 0
+
+    coef_after = np.polyfit(
+        Price_Deviation[mask_after],
+        Deviation_Costs[mask_after],
+        1
+    )
+
+    x_after = np.linspace(
+        0,
+        Price_Deviation[mask_after].max(),
+        100
+    )
+
+    ax1.plot(
+        x_after,
+        np.poly1d(coef_after)(x_after),
+        color='black',
+        linewidth=2
+    )
+
+    ax1.set_xlabel('Price Deviation (Chosen − Optimal)')
+    ax1.set_ylabel('Deviation Cost')
+    ax1.set_title('Reward/Punishment Following Price Deviations')
+    price_legend = [
+        Line2D(
+            [0], [0],
+            marker='o',
+            color='w',
+            label='Above Leader Price',
+            markerfacecolor='red',
+            markersize=7
+        ),
+        Line2D(
+            [0], [0],
+            marker='o',
+            color='w',
+            label='Between Leader and Follower Prices',
+            markerfacecolor='blue',
+            markersize=7
+        ),
+        Line2D(
+            [0], [0],
+            marker='o',
+            color='w',
+            label='Below Follower Price',
+            markerfacecolor='green',
+            markersize=7
+        )
+    ]
+
+    ax1.legend(
+        handles=price_legend,
+        loc='best'
+    )
+
+
+    # =========================================================
+    # INVESTMENT
+    # =========================================================
+
+    ax2.scatter(
+        Investment_Deviation,
+        Deviation_Costs,
+        c=investment_colours,
+        s=8,
+        alpha=0.25
+    )
+
+    # Zero deviation
+    ax2.axvline(
+        0,
+        color='orange',
+        linestyle='--',
+        linewidth=2
+    )
+
+    # ----- Trend before zero -----
+
+    mask_before = Investment_Deviation < 0
+
+    coef_before = np.polyfit(
+        Investment_Deviation[mask_before],
+        Deviation_Costs[mask_before],
+        1
+    )
+
+    x_before = np.linspace(
+        Investment_Deviation[mask_before].min(),
+        0,
+        100
+    )
+
+    ax2.plot(
+        x_before,
+        np.poly1d(coef_before)(x_before),
+        color='black',
+        linewidth=2
+    )
+
+
+    # ----- Trend after zero -----
+
+    mask_after = Investment_Deviation > 0
+
+    coef_after = np.polyfit(
+        Investment_Deviation[mask_after],
+        Deviation_Costs[mask_after],
+        1
+    )
+
+    x_after = np.linspace(
+        0,
+        Investment_Deviation[mask_after].max(),
+        100
+    )
+
+    ax2.plot(
+        x_after,
+        np.poly1d(coef_after)(x_after),
+        color='black',
+        linewidth=2
+    )
+
+    ax2.set_xlabel('Investment Deviation (Chosen − Optimal)')
+    ax2.set_ylabel('Deviation Cost')
+    ax2.set_title('Reward/Punishment Following Investment Deviations')
+
+    investment_legend = [
+        Line2D(
+            [0], [0],
+            marker='o',
+            color='w',
+            label='Below Leader Investment',
+            markerfacecolor='red',
+            markersize=7
+        ),
+        Line2D(
+            [0], [0],
+            marker='o',
+            color='w',
+            label='Between Leader and Follower Investments',
+            markerfacecolor='blue',
+            markersize=7
+        ),
+        Line2D(
+            [0], [0],
+            marker='o',
+            color='w',
+            label='Above Follower Investment',
+            markerfacecolor='green',
+            markersize=7
+        )
+    ]
+
+    ax2.legend(
+        handles=investment_legend,
+        loc='best'
+    )
+
+
+    plt.tight_layout()
+
+
+    plt.savefig(r"TrainingResults\Reactions.png", dpi=300, bbox_inches='tight')
+    plt.close()
+    
+             
+
+
 def Welfare_Plot(CS_Theory,CS_Real,M_Theory,M_Real,save_path="TrainingResults/Welfare.png", show=False, dpi=300):
     print("Welfare")
     fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(8, 8))

@@ -5,7 +5,7 @@ from Settings import Config
 import numpy as np
 import time
 from tqdm import tqdm
-from Visualize import plotting, leaderplots,strategy,Welfare_Plot,Routine_Results
+from Visualize import plotting, leaderplots,strategy,Welfare_Plot,Routine_Results,reactions
 import json
 import random
 from Helper import format_eta,NumpyEncoder
@@ -86,7 +86,7 @@ def Simulate(ClusterTest=False,Progress=True):
         State_log.append([prices[0]]*firms)
 
     Industry_m = initialM
-    Downsample_len = 1000
+    Downsample_len = 2000
         #fixed experimentation log
     Profits_explog = []
     Price_explog = []
@@ -97,6 +97,7 @@ def Simulate(ClusterTest=False,Progress=True):
     Invest_statlog = []
     State_logs = []
     MarketShares_Stat = []
+    State_logsfull = []
 
     CS_Theory = []
     CS_Real = []
@@ -113,10 +114,18 @@ def Simulate(ClusterTest=False,Progress=True):
     Firm_Stationarity = [0]
     Stationarity_Target = 200000
     training_start = time.perf_counter()
+    No_ConvergCap = None
+    No_Convergence = False
 
     with tqdm(total=Stationarity_Target, desc="Tracking Stationarity",disable=not Progress) as pbar:
         while min(Firm_Stationarity) < Stationarity_Target:
+            #cap is reached - meaning convergence has not been attained
             if Round == GameCap:
+                No_Convergence = True
+                No_ConvergCap = Round+Stationarity_Target
+                #add 200k more rounds and record data even though its not converged
+
+            if Round == No_ConvergCap:
                 break
 
             epsilon = max((epsilon_decay*Round) + 1,0)
@@ -135,7 +144,7 @@ def Simulate(ClusterTest=False,Progress=True):
 
             #Save current state for updating the Q-Matrix
             CurrentState = [prices[:] for prices in State_log]
-
+            
             #Save actioned prices into state log
             State_log.append(list(Prices))
 
@@ -146,7 +155,26 @@ def Simulate(ClusterTest=False,Progress=True):
 
             MarketShares = Demand(Price_Actions,Leader) * mrktsz #for readability
 
+            """
+            Changing profit from value maximization objective to comparitive objective
+            """
+            #TODO: Still need to keep real Profit level somewhere just need to use different scoring metric in q matrix
+
             Profit = (Price_Actions - mc)*MarketShares - Investment_Actions
+
+            
+            Profits_array = np.array(Profit)
+            differences = np.array([
+                value - np.mean(np.delete(Profits_array, i))
+                for i, value in enumerate(Profits_array)
+                ])
+
+          
+            
+            #This is what is updated in the Q-Matrix
+            #Firm_Objective = [sum(Profit)] * len(Profit)
+            Firm_Objective = Profit
+            #Firm_Objective = differences
 
             #Calculate best possible outcomes next period 
             Leader_Best = []
@@ -196,10 +224,10 @@ def Simulate(ClusterTest=False,Progress=True):
                     Firm_Probabilities +=NoInnovationProb
                 
                 #If firm is is the current leader use 
-                ValueExpectations= (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest))
+                ValueExpectations= (1-learning_rate)*Current_Values + learning_rate*(Firm_Objective + delta*(Firm_Probabilities*LeaderBest + (1-Firm_Probabilities)*FollowerBest))
             elif firms == 1:
                 #In monopoly firm is guaranteed to remain leader
-                ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Profit + delta*LeaderBest )
+                ValueExpectations = (1-learning_rate)*Current_Values + learning_rate*(Firm_Objective + delta*LeaderBest )
                 
             #Make sure i don't get any floating point errors
             cleaned_expectations = np.round(ValueExpectations, 4)
@@ -253,31 +281,32 @@ def Simulate(ClusterTest=False,Progress=True):
                 M_Real.append(Industry_m)
 
 
-            if Round>ExpLen: #experimentation is over
-                if min(Firm_Stationarity) == 0:
-                    #if Q matrix changes dump stat log
-                    Profits_statlog = []
-                    Price_statlog = []
-                    Invest_statlog = []
-                    State_logs = []
-                    CS_Theory_Stat = []
-                    CS_Real_Stat = []
-                    M_Theory_Stat = []
-                    M_Real_Stat = []
-                    MarketShares_Stat = []
-                else:
-                    Profits_statlog.append(np.append(Profit,LeaderIndex))
-                    Price_statlog.append(np.append(Price_Actions,LeaderIndex))
-                    Invest_statlog.append(np.append(Investment_Actions,LeaderIndex))
-                    MarketShares_Stat.append(np.append(MarketShares,LeaderIndex))
-                    #Only append unique states
-                    CurrStateTup = tuple(value for sublist in State_log for value in sublist)
-                    if CurrStateTup not in State_logs:State_logs.append(CurrStateTup)
+            if min(Firm_Stationarity) == 0 and not No_Convergence:
+                #if Q matrix changes dump stat log
+                Profits_statlog = []
+                Price_statlog = []
+                Invest_statlog = []
+                State_logs = []
+                CS_Theory_Stat = []
+                CS_Real_Stat = []
+                M_Theory_Stat = []
+                M_Real_Stat = []
+                MarketShares_Stat = []
+                State_logsfull = []
+            else:
+                Profits_statlog.append(np.append(Profit,LeaderIndex))
+                Price_statlog.append(np.append(Price_Actions,LeaderIndex))
+                Invest_statlog.append(np.append(Investment_Actions,LeaderIndex))
+                MarketShares_Stat.append(np.append(MarketShares,LeaderIndex))
+                #Only append unique states
+                CurrStateTup = tuple(value for sublist in State_log for value in sublist)
+                if CurrStateTup not in State_logs:State_logs.append(CurrStateTup)
+                State_logsfull.append(CurrStateTup)
 
-                    CS_Theory_Stat.append(CS_T)
-                    CS_Real_Stat.append(CS_R)
-                    M_Theory_Stat.append(M_Expected)
-                    M_Real_Stat.append(Industry_m)
+                CS_Theory_Stat.append(CS_T)
+                CS_Real_Stat.append(CS_R)
+                M_Theory_Stat.append(M_Expected)
+                M_Real_Stat.append(Industry_m)
 
             #Progress bar - only updates every X rounds
             if Round % 20000 == 0 and Progress:
@@ -306,6 +335,7 @@ def Simulate(ClusterTest=False,Progress=True):
         #plot_visit_counts_3d(Firms)
         strategy(State_logs,Firms,config)
         Welfare_Plot(CS_Theory,CS_Real,M_Theory,M_Real)
+        reactions(Firms,Possible_States,Possible_Actions,config)
         plot_elapsed = time.perf_counter() - plot_start
 
         print(f"Plotting completed in {plot_elapsed:.2f} seconds")
