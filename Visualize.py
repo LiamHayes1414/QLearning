@@ -226,16 +226,16 @@ def leaderplots(
         
         for ax, (title, ylabel, _, _), matrix_e, matrix_s in zip(axes[:3, leader_index],logs,exp_matrices,stat_matrices): #Rows in diagram
             leaderI_turns_exp = matrix_e[leader_mask_exp]
-            leaderI_turns_stat = matrix_s[leader_mask_stat]
-
+            leaderI_turns_stat = matrix_s[leader_mask_stat][:, :-1]
+          
             leaderI_exp_points = len(leaderI_turns_exp)
-            leaderI_stat_points = len(leaderI_turns_stat)
 
             exp_turns = np.arange(leaderI_exp_points) * downsample
-            stat_turns = np.arange(leaderI_stat_points) + max(exp_turns) +1
+       
+            total_turns = exp_turns
+            total_points = leaderI_turns_exp
 
-            total_turns = np.concatenate([exp_turns, stat_turns])
-            total_points = np.concatenate([leaderI_turns_exp,leaderI_turns_stat])
+            last_x = total_turns[-1]
 
             smooth_window = max(1, leaderI_exp_points // 50)
             label_x = exp_turns[min(smooth_window, leaderI_exp_points - 1)]
@@ -253,28 +253,61 @@ def leaderplots(
                     color=firm_color,
                     label=f'Firm {firm_index + 1} trend ({smooth_window})'
                 )
-                #plot last 100 points to see if there is oscillation
-                ax.scatter(
-                    stat_turns[-100:],
-                    leaderI_turns_stat[:, firm_index][-100:], #showing last 100
-                    color=firm_color,
-                    s=10,
-                    zorder=3
-                )
+            #plot stat points as box plot to see converged solutions
+            n = leaderI_turns_stat.shape[1]
+            
+            right_padding = last_x*0.05
+
+            box_width = 0.05 * last_x
+
+            spacing = box_width * 1.5
+
+            positions = last_x + box_width / 2 + np.arange(n) * spacing
+
+            final_x = positions[-1] + box_width / 2 + right_padding
+
+            bp = ax.boxplot(
+                leaderI_turns_stat,
+                positions=positions,
+                widths=box_width,
+                patch_artist=True
+            )
+
+            for firm_index, box in enumerate(bp['boxes']):
+                firm_color = firm_colors[firm_index % len(firm_colors)]
+                box.set_edgecolor(firm_color)
+                box.set_facecolor('none')
+
+                bp['whiskers'][2 * firm_index].set_color(firm_color)
+                bp['whiskers'][2 * firm_index + 1].set_color(firm_color)
+                # Caps (2 per box)
+                bp['caps'][2 * firm_index].set_color(firm_color)
+                bp['caps'][2 * firm_index + 1].set_color(firm_color)
+
+                # Outliers (1 collection per box)
+                bp['fliers'][firm_index].set_markeredgecolor(firm_color)
+                bp['fliers'][firm_index].set_markerfacecolor('none')
+
+                bp['medians'][firm_index].set_color(firm_color)
+
+            ax.set_xlim(right=final_x)
 
             ax.set_ylabel(ylabel)
             ax.set_title(f"{title} - Firm {leader_index + 1} Leader")
             add_equilibrium_lines(ax, title, config, label_x)
             ax.grid(True, alpha=0.25)
-            ax.margins(x=0)
-
+        
         #Hide y axis on all column except first one (save space)
         if leader_index > 0:
             for row_index in range(3):
                 axes[row_index, leader_index].set_ylabel("")
 
         axes[-1, leader_index].set_xlabel('Turns')
-        axes[-1, leader_index].xaxis.set_major_locator(MaxNLocator(nbins=10, integer=True))
+        axes[-1, leader_index].set_xlim(0, final_x)
+
+        ticks = np.linspace(0, last_x, 8)
+        axes[-1, leader_index].set_xticks(ticks)
+        axes[-1, leader_index].set_xticklabels([f"{x:,.0f}" for x in ticks])
 
     handles, labels = axes[0, 0].get_legend_handles_labels()
     if handles:
@@ -975,9 +1008,6 @@ def reactions(Firms,Possible_States,Possible_Actions,config):
     plt.savefig(r"TrainingResults\Reactions.png", dpi=300, bbox_inches='tight')
     plt.close()
     
-             
-
-
 def Welfare_Plot(CS_Theory,CS_Real,M_Theory,M_Real,save_path="TrainingResults/Welfare.png", show=False, dpi=300):
     print("Welfare")
     fig, (ax1, ax2) = plt.subplots(nrows=2, ncols=1, sharex=True, figsize=(8, 8))

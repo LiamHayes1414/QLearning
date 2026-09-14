@@ -10,6 +10,7 @@ import json
 import random
 from Helper import format_eta,NumpyEncoder
 import argparse
+import math
 
 def Simulate(ClusterTest=False,Progress=True):
     #Allow for parameter inputs
@@ -25,6 +26,7 @@ def Simulate(ClusterTest=False,Progress=True):
     parser.add_argument("--alpha",type=float,default=None)
     parser.add_argument("--mrktsz",type=float,default=None)
     parser.add_argument("--mc",type=float,default=None)
+    parser.add_argument("--objective", type=str, default=None)
 
         #simulation details
     parser.add_argument("--plot", type=float, default=False)
@@ -40,7 +42,8 @@ def Simulate(ClusterTest=False,Progress=True):
         "beta":args.beta,
         "alpha":args.alpha,
         "mrktsz":args.mrktsz,
-        "mc":args.mc
+        "mc":args.mc,
+        "objective":args.objective
     }
 
     # Remove None values
@@ -65,6 +68,7 @@ def Simulate(ClusterTest=False,Progress=True):
     mrktsz = config.mrktsz
     ConsumerSurplus = config.ConsumerSurplus
     initialM = config.startingM
+    objective = config.objective
 
     #Possible state and action vectors
     Possible_States = list(product(*( [prices] * (firms * lags) + [positions] )))
@@ -127,8 +131,9 @@ def Simulate(ClusterTest=False,Progress=True):
 
             if Round == No_ConvergCap:
                 break
-
-            epsilon = max((epsilon_decay*Round) + 1,0)
+            
+            epsilon = max((epsilon_decay * Round) + 1,0)
+          
 
             Prices = []
             Investments = []
@@ -155,27 +160,21 @@ def Simulate(ClusterTest=False,Progress=True):
 
             MarketShares = Demand(Price_Actions,Leader) * mrktsz #for readability
 
-            """
-            Changing profit from value maximization objective to comparitive objective
-            """
-            #TODO: Still need to keep real Profit level somewhere just need to use different scoring metric in q matrix
-
             Profit = (Price_Actions - mc)*MarketShares - Investment_Actions
 
-            
-            Profits_array = np.array(Profit)
-            differences = np.array([
-                value - np.mean(np.delete(Profits_array, i))
-                for i, value in enumerate(Profits_array)
-                ])
-
-          
-            
-            #This is what is updated in the Q-Matrix
-            #Firm_Objective = [sum(Profit)] * len(Profit)
-            Firm_Objective = Profit
-            #Firm_Objective = differences
-
+            #Different optimization objectives for the firms
+            if objective == "profit":
+                Firm_Objective = Profit
+            elif objective == "collude":
+                Firm_Objective = [sum(Profit)] * len(Profit)
+            elif objective == "rival":
+                Profits_array = np.array(Profit)
+                differences = np.array([
+                    value - np.mean(np.delete(Profits_array, i))
+                    for i, value in enumerate(Profits_array)
+                    ])
+                Firm_Objective = differences
+    
             #Calculate best possible outcomes next period 
             Leader_Best = []
             Follower_Best = []

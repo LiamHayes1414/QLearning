@@ -14,7 +14,7 @@ class Config:
     lags: int = 1
     firms: int = 2
     mrktsz: int = 1000
-    caplen:int = 10**8 #hard cap at 100MM iterations
+    caplen:int = 10**9 #hard cap at 100MM iterations
     startingM:int=1
     #Demand features
     mc: int = 1
@@ -31,8 +31,9 @@ class Config:
     price_interval_margin = 0.02
     investment_interval_margin = 0.1
     #based on above values     _States_                      _actions_             visit each ~X times
-    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) * 100
+    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) * 500
     epsilon_decay: float = -1/(explorationlen)
+    objective:str="profit"
 
     #Holder variables
     MonopolyP: float = None
