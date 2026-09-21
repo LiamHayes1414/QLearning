@@ -10,7 +10,6 @@ import json
 import random
 from Helper import format_eta,NumpyEncoder
 import argparse
-import math
 
 def Simulate(ClusterTest=False,Progress=True):
     #Allow for parameter inputs

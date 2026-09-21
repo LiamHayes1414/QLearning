@@ -185,7 +185,7 @@ def leaderplots(
     show=False,
     fig_size=None,
     dpi=300
-):
+    ):
     print('Leader Plot')
     num_firms = config.firms
     if fig_size is None:
@@ -336,7 +336,7 @@ def plot_visit_counts_3d(
     show=False,
     fig_size=(16, 8.125),
     dpi=300,
-):
+    ):
     print('3D Plot')
 
     fig = plt.figure(figsize=fig_size,constrained_layout=True)
@@ -1088,60 +1088,35 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
     firm_price_avgs = price_matrix[:, :-1].mean(axis=0)
     firm_invest_avgs = invest_matrix[:, :-1].mean(axis=0)
     firm_profit_avgs = profit_matrix[:, :-1].mean(axis=0)
-    firm_mrktshr_avg = mrktshr_matrix[:, :-1].mean(axis=0)
+    firm_mrktshr_avgs = mrktshr_matrix[:, :-1].mean(axis=0)
 
-    def benchmark_comparison(values, benchmark,Percent=True):
-        if Percent:
-            return (values - benchmark)/benchmark *100, "Percent"
-        return values - benchmark, "Difference"
-        
-    def save_result(column, value, unit):
-        data[column] = value
-        data[f"{column}_Unit"] = unit
-
-    #Compare to benchmarks
-    if config.firms>1:
-        Price_V_Follower, Price_V_Follower_Unit = benchmark_comparison(firm_price_avgs, FollowerB_Price)
-        Price_V_Leader, Price_V_Leader_Unit = benchmark_comparison(firm_price_avgs, LeaderB_Price)
-
-        Invest_V_Follower, Invest_V_Follower_Unit = benchmark_comparison(firm_invest_avgs, FollowerB_Invest,False)
-        Invest_V_Leader, Invest_V_Leader_Unit = benchmark_comparison(firm_invest_avgs, LeaderB_Invest,False)
-
-        Profit_V_MonopolyF, Profit_V_MonopolyF_Unit = benchmark_comparison(firm_profit_avgs, MonopolyFB_Profit)
-        Profit_V_Follower, Profit_V_Follower_Unit = benchmark_comparison(firm_profit_avgs, FollowerB_Profit)
-        Profit_V_Leader, Profit_V_Leader_Unit = benchmark_comparison(firm_profit_avgs, LeaderB_Profit)
-
-        MrktShr_V_MonopolyF,MrktShr_V_MonopolyF_Unit = benchmark_comparison(firm_mrktshr_avg, MonopolyFB_MrktShr,False)
-        MrktShr_V_Leader,MrktShr_V_Leader_Unit = benchmark_comparison(firm_mrktshr_avg, LeaderB_MrktShr,False)
-        MrktShr_V_Follower,MrktShr_V_Follower_Unit = benchmark_comparison(firm_mrktshr_avg, FollowerB_MrktShr,False)
-
-    Price_V_Monopoly, Price_V_Monopoly_Unit = benchmark_comparison(firm_price_avgs, MonopolyB_Price)
-    Invest_V_Monopoly, Invest_V_Monopoly_Unit = benchmark_comparison(firm_invest_avgs, MonopolyB_Invest,False)
-    Profit_V_MonopolyL, Profit_V_MonopolyL_Unit = benchmark_comparison(firm_profit_avgs, MonopolyLB_Profit)
-    MrktShr_V_MonopolyL,MrktShr_V_MonopolyL_Unit = benchmark_comparison(firm_mrktshr_avg, MonopolyLB_MrktShr,False)
-    
     #Save results
-    for idx in range(len(Price_V_Monopoly)):
+    for idx in range(len(firm_profit_avgs)):
 
         if config.firms>1:
-            save_result(f'LeaderPrice_F{idx}', Price_V_Leader[idx], Price_V_Leader_Unit)
-            save_result(f'FollowerPrice_F{idx}', Price_V_Follower[idx], Price_V_Follower_Unit)
+            #Prices
+            data[f'Price_F{idx}'] = firm_price_avgs[idx]
+            data['LeaderPrice_Benchmark'] = LeaderB_Price
+            data['FollowerPrice_Benchmark'] = FollowerB_Price
+            #Investments
+            data[f'Invest_F{idx}'] = firm_invest_avgs[idx]
+            data['LeaderInvest_Benchmark'] = LeaderB_Invest
+            data['FollowerInvest_Benchmark'] = FollowerB_Invest
+            #Profit
+            data[f'Profit_F{idx}'] = firm_profit_avgs[idx]
+            data['LeaderProfit_Benchmark'] = LeaderB_Profit
+            data['FollowerProfit_Benchmark'] = FollowerB_Profit
+            data['MonopolyFProfit_Benchmark'] = MonopolyFB_Profit
+            #Marketshare
+            data[f'MrktShr_F{idx}'] = firm_mrktshr_avgs[idx]
+            data['LeaderMrktShr_Benchmark'] = LeaderB_MrktShr
+            data['FollowerMrktShr_Benchmark'] = FollowerB_MrktShr
+            data['MonopolyFMrktShr_Benchmark'] = MonopolyFB_MrktShr
 
-            save_result(f'LeaderInvest_F{idx}', Invest_V_Leader[idx], Invest_V_Leader_Unit)
-            save_result(f'FollowerInvest_F{idx}', Invest_V_Follower[idx], Invest_V_Follower_Unit)
-
-            save_result(f'MonopolyFProfit_F{idx}', Profit_V_MonopolyF[idx], Profit_V_MonopolyF_Unit)
-            save_result(f'LeaderProfit_F{idx}', Profit_V_Leader[idx], Profit_V_Leader_Unit)
-            save_result(f'FollowerProfit_F{idx}', Profit_V_Follower[idx], Profit_V_Follower_Unit)
-
-            save_result(f'MonopolyFMrktShr_F{idx}', MrktShr_V_MonopolyF[idx], MrktShr_V_MonopolyF_Unit)
-            save_result(f'LeaderMrktShr_F{idx}', MrktShr_V_Leader[idx], MrktShr_V_Leader_Unit)
-            save_result(f'FollowerMrktShr_F{idx}', MrktShr_V_Follower[idx], MrktShr_V_Follower_Unit)
-
-        save_result(f'MonopolyPrice_F{idx}', Price_V_Monopoly[idx], Price_V_Monopoly_Unit)
-        save_result(f'MonopolyInvest_F{idx}', Invest_V_Monopoly[idx], Invest_V_Monopoly_Unit)
-        save_result(f'MonopolyLProfit_F{idx}', Profit_V_MonopolyL[idx], Profit_V_MonopolyL_Unit)
-        save_result(f'MonopolyLMrktShr_F{idx}', MrktShr_V_MonopolyL[idx], MrktShr_V_MonopolyL_Unit)
+        data['MonopolyPrice_Benchmark'] = MonopolyB_Price
+        data['MonopolyInvest_Benchmark'] = MonopolyB_Invest
+        data['MonopolyLProfit_Benchmark'] = MonopolyLB_Profit
+        data['MonopolyLMrktShr_Benchmark'] = MonopolyLB_MrktShr
         
 
     #_Avg when firm x is leader_
@@ -1157,48 +1132,18 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
         leader_avg_profit = profit_matrix[mask][:, :-1].mean(axis=0)
         leader_avg_mrktshr = mrktshr_matrix[mask][:, :-1].mean(axis=0)
 
-        #Compare to benchmarks
-        if config.firms>1:
-            LPrice_V_Follower, LPrice_V_Follower_Unit = benchmark_comparison(leader_avg_price, FollowerB_Price)
-            LPrice_V_Leader, LPrice_V_Leader_Unit = benchmark_comparison(leader_avg_price, LeaderB_Price)
-
-            LInvest_V_Follower, LInvest_V_Follower_Unit = benchmark_comparison(leader_avg_invest, FollowerB_Invest,False)
-            LInvest_V_Leader, LInvest_V_Leader_Unit = benchmark_comparison(leader_avg_invest, LeaderB_Invest,False)
-
-            LProfit_V_MonopolyF, LProfit_V_MonopolyF_Unit = benchmark_comparison(leader_avg_profit, MonopolyFB_Profit)
-            LProfit_V_Follower, LProfit_V_Follower_Unit = benchmark_comparison(leader_avg_profit, FollowerB_Profit)
-            LProfit_V_Leader, LProfit_V_Leader_Unit = benchmark_comparison(leader_avg_profit, LeaderB_Profit)
-
-            LMrktShr_V_MonopolyF,LMrktShr_V_MonopolyF_Unit = benchmark_comparison(leader_avg_mrktshr, MonopolyFB_MrktShr,False)
-            LMrktShr_V_Leader,LMrktShr_V_Leader_Unit = benchmark_comparison(leader_avg_mrktshr, LeaderB_MrktShr,False)
-            LMrktShr_V_Follower,LMrktShr_V_Follower_Unit = benchmark_comparison(leader_avg_mrktshr, FollowerB_MrktShr,False)
-
-        LPrice_V_Monopoly, LPrice_V_Monopoly_Unit = benchmark_comparison(leader_avg_price, MonopolyB_Price)
-        LInvest_V_Monopoly, LInvest_V_Monopoly_Unit = benchmark_comparison(leader_avg_invest, MonopolyB_Invest,False)
-        LProfit_V_MonopolyL, LProfit_V_MonopolyL_Unit = benchmark_comparison(leader_avg_profit, MonopolyLB_Profit)
-        LMrktShr_V_MonopolyL,LMrktShr_V_MonopolyL_Unit = benchmark_comparison(leader_avg_mrktshr, MonopolyLB_MrktShr,False)
-    
         #Save results
-        for idx in range(len(LPrice_V_Monopoly)):
+        for idx in range(len(leader_avg_price)):
             if config.firms>1:
-                save_result(f'Leader{int(leader)}_LeaderPrice_F{idx}', LPrice_V_Leader[idx], LPrice_V_Leader_Unit)
-                save_result(f'Leader{int(leader)}_FollowerPrice_F{idx}', LPrice_V_Follower[idx], LPrice_V_Follower_Unit)
+                #Prices
+                data[f'Price_F{idx}_Leader{int(leader)}'] = leader_avg_price[idx]
+                #Investments
+                data[f'Invest_F{idx}_Leader{int(leader)}'] = leader_avg_invest[idx]
+                #Profit
+                data[f'Profit_F{idx}_Leader{int(leader)}'] = leader_avg_profit[idx]
+                #Marketshare
+                data[f'MrktShr_F{idx}_Leader{int(leader)}'] = leader_avg_mrktshr[idx]
 
-                save_result(f'Leader{int(leader)}_LeaderInvest_F{idx}', LInvest_V_Leader[idx], LInvest_V_Leader_Unit)
-                save_result(f'Leader{int(leader)}_FollowerInvest_F{idx}', LInvest_V_Follower[idx], LInvest_V_Follower_Unit)
-
-                save_result(f'Leader{int(leader)}_MonopolyFProfit_F{idx}', LProfit_V_MonopolyF[idx], LProfit_V_MonopolyF_Unit)
-                save_result(f'Leader{int(leader)}_LeaderProfit_F{idx}', LProfit_V_Leader[idx], LProfit_V_Leader_Unit)
-                save_result(f'Leader{int(leader)}_FollowerProfit_F{idx}', LProfit_V_Follower[idx], LProfit_V_Follower_Unit)
-
-                save_result(f'Leader{int(leader)}_MonopolyFMrktShr_F{idx}', LMrktShr_V_MonopolyF[idx], LMrktShr_V_MonopolyF_Unit)
-                save_result(f'Leader{int(leader)}_LeaderMrktShr_F{idx}', LMrktShr_V_Leader[idx], LMrktShr_V_Leader_Unit)
-                save_result(f'Leader{int(leader)}_FollowerMrktShr_F{idx}', LMrktShr_V_Follower[idx], LMrktShr_V_Follower_Unit)
-
-            save_result(f'Leader{int(leader)}_MonopolyPrice_F{idx}', LPrice_V_Monopoly[idx], LPrice_V_Monopoly_Unit)
-            save_result(f'Leader{int(leader)}_MonopolyInvest_F{idx}', LInvest_V_Monopoly[idx], LInvest_V_Monopoly_Unit)
-            save_result(f'Leader{int(leader)}_MonopolyLProfit_F{idx}', LProfit_V_MonopolyL[idx], LProfit_V_MonopolyL_Unit)
-            save_result(f'Leader{int(leader)}_MonopolyLMrktShr_F{idx}', LMrktShr_V_MonopolyL[idx], LMrktShr_V_MonopolyL_Unit)
             
     #_Welfare_
     CSTheory_Avg = np.mean(CS_Theory)
@@ -1224,43 +1169,38 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
     data[f'ConvergTime'] = ConvergenceTime
     data[f'UniqueStates'] = UniqueStates
 
-
     df = pd.DataFrame(data,index=[0])
-
+    
     # Save as binary parquet 
     if not TestParameter: #no parameters passed
         key, value = "test", ""
     else:
         key, value = next(iter(TestParameter.items()))
 
-    df.to_parquet(f"{OutputLoc}/run_{key}{value}_{ParIt}.parquet")
+    df.to_parquet(f"{OutputLoc}/run_{key}_{value}_{ParIt}.parquet")
 
-def PlotParallel(column_groups,value_name,separate_firms=False):
-    #Column Groups example:
-    """
-    column_groups = {
-                "Monopoly": r"^MonopolyPrice_F",
-                "Leader": r"^LeaderPrice_F",
-                "Follower": r"^FollowerPrice_F",
-            }
-    """
+def PlotParallel(value_name,marketleader=None):
     parquet_folder="TrainingResultsC"
-    y_label = f"{value_name} Difference"
-    title = f"{value_name} Differences (Data - Benchmark)"
-    if separate_firms:
-        save_path = f"TrainingResults/parallel_{value_name.lower()}_firm_boxplots.png"
+    title = value_name
+    
+    if marketleader is not None:
+        save_path = f"TrainingResults/parallel_{value_name.lower()}_firm{marketleader}_boxplots.png"
     else:
         save_path = f"TrainingResults/parallel_{value_name.lower()}_boxplots.png"
 
-    colours = {
-            "Monopoly": "#C62828",
-            "Leader": "#1565C0",
-            "Follower": "#2E7D32",
-            "MonopolyL": "#8E24AA",
-            "MonopolyF": "#FB8C00",
-        }
-
     ParquetFolder = Path(parquet_folder)
+    def convert_parameter(value):
+        try:
+            num = float(value)
+
+            # Keep integers as integers
+            if num.is_integer():
+                return int(num)
+
+            return num
+
+        except ValueError:
+            return value
 
     #Group files by tested parameter
     grouped_files = defaultdict(list)
@@ -1271,160 +1211,172 @@ def PlotParallel(column_groups,value_name,separate_firms=False):
         if file_name.startswith("run_") and "_" in file_name:
             details = file_name.split("_")
 
-            tested_parameter = details[1] #get parameter name and value 
+            tested_parameter = details[1] #get parameter name
+            parameter_value = convert_parameter(details[2])
             df = pd.read_parquet(file) #load parquet information into dataframe obj
 
-            grouped_files[tested_parameter].append(df)
+            grouped_files[parameter_value].append(df)
 
     final_data_dict = {}
     for param, df_list in grouped_files.items():
         final_data_dict[param] = pd.concat(df_list, ignore_index=True)
-
-    def parameter_sort_key(parameter):
-        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
-        if number_match:
-            prefix = parameter[:number_match.start()]
-            return (prefix, float(number_match.group()), parameter)
-        return (parameter, float("inf"), parameter)
-
-    parameter_order = sorted(final_data_dict.keys(), key=parameter_sort_key)
-
-    def parameter_display_parts(parameter):
-        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
-        if not number_match:
-            return parameter, ""
-        return number_match.group(), parameter[:number_match.start()]
-
-    parameter_labels = [parameter_display_parts(parameter)[0] for parameter in parameter_order]
-    parameter_prefixes = {
-        parameter_display_parts(parameter)[1]
-        for parameter in parameter_order
-        if parameter_display_parts(parameter)[1]
-    }
-    if len(parameter_prefixes) == 1:
-        tested_parameter = next(iter(parameter_prefixes))
-        title = f"{title} by {tested_parameter}"
-
     plot_rows = []
-    for key,curr_df in final_data_dict.items():
-        for group_label, column_pattern in column_groups.items():
-            if isinstance(column_pattern, str):
-                matched_columns = curr_df.filter(regex=column_pattern)
+    for param_val,curr_df in final_data_dict.items():
+        if value_name == "Price":
+            if marketleader is not None:
+                matched_columns = curr_df.filter(regex=fr'^Price_F\d+_Leader{int(marketleader)}$')
+                leader_benchmark = curr_df.filter(regex=fr'^LeaderPrice_Benchmark').squeeze().unique().tolist()
+                follower_benchmark = curr_df.filter(regex=fr'^FollowerPrice_Benchmark').squeeze().unique().tolist()
+                monopolyL_benchmark = curr_df.filter(regex=fr'^MonopolyPrice_Benchmark').squeeze().unique().tolist()
+            else:   
+                matched_columns = curr_df.filter(regex=r'^Price_F\d+$')
+                leader_benchmark = curr_df.filter(regex=r'^LeaderPrice_Benchmark').squeeze().unique().tolist()
+                follower_benchmark = curr_df.filter(regex=r'^FollowerPrice_Benchmark').squeeze().unique().tolist()
+                monopolyL_benchmark = curr_df.filter(regex=r'^MonopolyPrice_Benchmark').squeeze().unique().tolist()
+            monopolyF_benchmark = [None]
+        elif value_name =="Invest":
+            if marketleader is not None:
+                matched_columns = curr_df.filter(regex=fr'^Invest_F\d+_Leader{int(marketleader)}$')
+                leader_benchmark = curr_df.filter(regex=fr'^LeaderInvest_Benchmark').squeeze().unique().tolist()
+                follower_benchmark = curr_df.filter(regex=fr'^FollowerInvest_Benchmark').squeeze().unique().tolist()
+                monopolyL_benchmark = curr_df.filter(regex=fr'^MonopolyInvest_Benchmark').squeeze().unique().tolist()
             else:
-                existing_columns = [column for column in column_pattern if column in curr_df.columns]
-                matched_columns = curr_df.loc[:, existing_columns]
-            matched_columns = matched_columns.loc[:, [column for column in matched_columns.columns if not column.endswith("_Unit")]]
-
-            def result_unit(row_index, firm_column):
-                unit_column = f"{firm_column}_Unit"
-                if unit_column in curr_df.columns:
-                    unit = curr_df.at[row_index, unit_column]
-                    if pd.notna(unit):
-                        return unit
-                return "Unknown"
-
-            if separate_firms:
-                for firm_column in matched_columns.columns:
-                    for row_index, value in matched_columns[firm_column].dropna().items():
-                        plot_rows.append({
-                            "Parameter": key,
-                            "Group": group_label,
-                            "Firm": firm_column,
-                            "Unit": result_unit(row_index, firm_column),
-                            value_name: value,
-                        })
+                matched_columns = curr_df.filter(regex=r'^Invest_F\d+$')
+                leader_benchmark = curr_df.filter(regex=r'^LeaderInvest_Benchmark').squeeze().unique().tolist()
+                follower_benchmark = curr_df.filter(regex=r'^FollowerInvest_Benchmark').squeeze().unique().tolist()
+                monopolyL_benchmark = curr_df.filter(regex=r'^MonopolyInvest_Benchmark').squeeze().unique().tolist()
+            monopolyF_benchmark = [None]
+        elif value_name =="Profit":
+            if marketleader is not None:
+                matched_columns = curr_df.filter(regex=fr'^Profit_F\d+_Leader{int(marketleader)}$')
+                leader_benchmark = curr_df.filter(regex=fr'^LeaderProfit_Benchmark').squeeze().unique().tolist()
+                follower_benchmark = curr_df.filter(regex=fr'^FollowerProfit_Benchmark').squeeze().unique().tolist()
+                monopolyL_benchmark = curr_df.filter(regex=fr'^MonopolyLProfit_Benchmark').squeeze().unique().tolist()
+                monopolyF_benchmark = curr_df.filter(regex=fr'^MonopolyFProfit_Benchmark').squeeze().unique().tolist()
             else:
-                for firm_column in matched_columns.columns:
-                    for row_index, value in matched_columns[firm_column].dropna().items():
-                        plot_rows.append({
-                            "Parameter": key,
-                            "Group": group_label,
-                            "Unit": result_unit(row_index, firm_column),
-                            value_name: value,
-                        })
+                matched_columns = curr_df.filter(regex=r'^Profit_F\d+$')
+                leader_benchmark = curr_df.filter(regex=r'^LeaderProfit_Benchmark').squeeze().unique().tolist()
+                follower_benchmark = curr_df.filter(regex=r'^FollowerProfit_Benchmark').squeeze().unique().tolist()
+                monopolyL_benchmark = curr_df.filter(regex=r'^MonopolyLProfit_Benchmark').squeeze().unique().tolist()
+                monopolyF_benchmark = curr_df.filter(regex=r'^MonopolyFProfit_Benchmark').squeeze().unique().tolist()
+        elif value_name =="MrktShr":
+            if marketleader is not None:
+                matched_columns = curr_df.filter(regex=fr'^MrktShr_F\d+_Leader{int(marketleader)}$')
+                leader_benchmark = curr_df.filter(regex=fr'^LeaderMrktShr_Benchmark').squeeze().unique().tolist()
+                follower_benchmark = curr_df.filter(regex=fr'^FollowerMrktShr_Benchmark').squeeze().unique().tolist()
+                monopolyL_benchmark = curr_df.filter(regex=fr'^MonopolyLMrktShr_Benchmark').squeeze().unique().tolist()
+                monopolyF_benchmark = curr_df.filter(regex=fr'^MonopolyFMrktShr_Benchmark').squeeze().unique().tolist()
+            else:
+                matched_columns = curr_df.filter(regex=r'^MrktShr_F\d+$')
+                leader_benchmark = curr_df.filter(regex=r'^LeaderMrktShr_Benchmark').squeeze().unique().tolist()
+                follower_benchmark = curr_df.filter(regex=r'^FollowerMrktShr_Benchmark').squeeze().unique().tolist()
+                monopolyL_benchmark = curr_df.filter(regex=r'^MonopolyLMrktShr_Benchmark').squeeze().unique().tolist()
+                monopolyF_benchmark = curr_df.filter(regex=r'^MonopolyFMrktShr_Benchmark').squeeze().unique().tolist()
 
+        #should only be 1 unique benchmark per column
+        if len(leader_benchmark)>1 or len(follower_benchmark)>1 or len(monopolyL_benchmark)>1 or len(monopolyF_benchmark)>1:
+            raise ValueError("More than 1 unique benchmark")
+        
+        for idx, firm_column in enumerate(matched_columns.columns, start=1):
+            for row_index, value in matched_columns[firm_column].dropna().items():
+                plot_rows.append({
+                            "Parameter": param_val,
+                            "Firm": f"Firm {idx}",
+                            value_name:value,
+                            "Leader_BM":leader_benchmark[0],
+                            "Follower_BM":follower_benchmark[0],
+                            "MonopolyL_BM":monopolyL_benchmark[0],
+                            "MonopolyF_BM":monopolyF_benchmark[0]
+
+                        })
+            
     combined_values = pd.DataFrame(plot_rows)
+    combined_values = combined_values.sort_values("Parameter")
 
-    if combined_values.empty:
-        available_columns = sorted({
-            column
-            for curr_df in final_data_dict.values()
-            for column in curr_df.columns
-        })
-        requested_patterns = ", ".join(str(pattern) for pattern in column_groups.values())
-        preview_columns = ", ".join(available_columns[:25])
-        raise ValueError(
-            "No matching columns were found for the requested column groups. "
-            f"Requested patterns: {requested_patterns}. "
-            f"First available columns: {preview_columns}"
-        )
+    plt.figure(figsize=(10, 6))
 
-    fig, axes = plt.subplots(
-        nrows=len(column_groups),
-        ncols=1,
-        figsize=(12, 4 * len(column_groups) + 1),
-        sharex=True,
-        sharey=False,
+    # Create the box plot grouped by Parameter and split by Firm
+    sns.boxplot(data=combined_values, x="Parameter", y=value_name, hue="Firm",palette="Set2")
+
+    num_categories = combined_values["Parameter"].nunique()
+    dynamic_dash_size = max(20, 300 / num_categories)
+
+    #Add benchmarks
+    benchmark_cols = ["Leader_BM", "Follower_BM", "MonopolyL_BM", "MonopolyF_BM"]
+    colors = ["#1565C0", "#2E7D32", "#C62828", "#8E24AA"]
+    benchmark_palette = dict(zip(benchmark_cols, colors))
+
+    # 2. Melt only the columns we need so Seaborn can handle them all at once
+    benchmarks_melted = combined_values.melt(
+        id_vars=["Parameter"], 
+        value_vars=benchmark_cols, 
+        var_name="Benchmark", 
+        value_name="Benchmark_Value"
     )
-    if len(column_groups) == 1:
-        axes = [axes]
-    fig.suptitle(title, fontsize=14)
 
-    for ax, group_label in zip(axes, column_groups.keys()):
-        group_values = combined_values[combined_values["Group"] == group_label]
-        units = group_values["Unit"].dropna().unique()
-        if len(units) == 1:
-            if units[0] == "Percent":
-                axis_label = f"{value_name} (% Difference)"
-            elif units[0] == "Difference":
-                axis_label = f"{value_name} Difference"
-            else:
-                axis_label = f"{value_name} ({units[0]})"
-        elif len(units) > 1:
-            axis_label = f"{value_name} (Mixed Units)"
-        else:
-            axis_label = y_label
-        sns.boxplot(
-            data=group_values,
-            x="Parameter",
-            y=value_name,
-            hue="Firm" if separate_firms else None,
-            order=parameter_order,
-            color=None if separate_firms else colours.get(group_label, "#666666"),
-            ax=ax,
-        )
-        ax.axhline(y=0, color="black", linestyle="--", linewidth=1.0, zorder=1)
-        ax.text(
-            x=-0.45,
-            y=0,
-            s="Benchmark",
-            color="black",
-            va="bottom",
-            ha="left",
-            fontsize=8,
-            bbox=dict(facecolor="white", edgecolor="none", alpha=0.8, pad=1.5),
-            zorder=3,
-        )
-        if separate_firms:
-            ax.legend(title="Firm", loc="best")
-        ax.set_title(group_label, pad=5)
-        ax.set_xlabel("")
-        ax.set_ylabel(axis_label)
-        ax.set_xticks(range(len(parameter_order)))
-        ax.set_xticklabels(parameter_labels)
+    # 3. Plot ALL benchmarks in a single call so dodge=True can place them side-by-side
+    sns.stripplot(
+        data=benchmarks_melted,
+        x="Parameter",
+        y="Benchmark_Value",
+        hue="Benchmark",          # Group by the benchmark identity
+        palette=benchmark_palette,# Pass the specific colors mapping safely
+        dodge=True,               # Cleanly splits the width into half/fourths
+        marker="_",
+        size=dynamic_dash_size, 
+        linewidth=1.5,            # Increased slightly for better visibility over boxes
+        jitter=False,        
+        legend=True               # Keep true so your legend dictionary catches them!
+    )
 
-    axes[-1].set_xlabel("Tested Parameter")
-    fig.subplots_adjust(top=0.93, hspace=0.20)
+    #legend
+    handles, labels = plt.gca().get_legend_handles_labels()
+    by_label = dict(zip(labels, handles))
+    leg = plt.legend(
+        by_label.values(), 
+        by_label.keys(), 
+        loc="upper center", 
+        bbox_to_anchor=(0.5, -0.15), 
+        ncol=3,                     
+        frameon=True,              
+        borderaxespad=0.5           
+    )
+
+    for handle in leg.legend_handles:
+        if hasattr(handle, 'set_sizes'):
+            handle.set_sizes([40])
+            handle.set_linewidth(2) 
+
+    # Clean up the labels and title
+    plt.title(title)
+    plt.xlabel(f"Parameter - {tested_parameter}")
+    plt.ylabel(value_name)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()
+
+    # Display the plot
     plt.savefig(save_path, dpi=300, bbox_inches="tight")
 
-    plt.close(fig)
-
+    plt.close()
+   
 def PlotWelfareParallel():
     parquet_folder="TrainingResultsC"
     save_path_CS = f"TrainingResults/parallel_CS_boxplots.png"
     save_path_M = f"TrainingResults/parallel_Innovation_boxplots.png"
 
     ParquetFolder = Path(parquet_folder)
+    def convert_parameter(value):
+        try:
+            num = float(value)
+
+            # Keep integers as integers
+            if num.is_integer():
+                return int(num)
+
+            return num
+
+        except ValueError:
+            return value
 
     #Group files by tested parameter
     grouped_files = defaultdict(list)
@@ -1435,36 +1387,16 @@ def PlotWelfareParallel():
         if file_name.startswith("run_") and "_" in file_name:
             details = file_name.split("_")
 
-            tested_parameter = details[1] #get parameter name and value 
+            tested_parameter = details[1] #get parameter name
+            parameter_value = convert_parameter(details[2])
+
             df = pd.read_parquet(file) #load parquet information into dataframe obj
 
-            grouped_files[tested_parameter].append(df)
+            grouped_files[parameter_value].append(df)
 
     final_data_dict = {}
     for param, df_list in grouped_files.items():
         final_data_dict[param] = pd.concat(df_list, ignore_index=True)
-
-    def parameter_sort_key(parameter):
-        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
-        if number_match:
-            prefix = parameter[:number_match.start()]
-            return (prefix, float(number_match.group()), parameter)
-        return (parameter, float("inf"), parameter)
-
-    parameter_order = sorted(final_data_dict.keys(), key=parameter_sort_key)
-
-    def parameter_display_parts(parameter):
-        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
-        if not number_match:
-            return parameter, ""
-        return number_match.group(), parameter[:number_match.start()]
-
-    parameter_parts = [parameter_display_parts(parameter) for parameter in parameter_order]
-    parameter_labels = [label for label, _ in parameter_parts]
-    parameter_prefixes = {prefix for _, prefix in parameter_parts if prefix}
-    title_suffix = ""
-    if len(parameter_prefixes) == 1:
-        title_suffix = f" by {next(iter(parameter_prefixes))}"
 
     CS_plot_rows = []
     M_Val_rows = []
@@ -1487,17 +1419,19 @@ def PlotWelfareParallel():
     df_melted_CS = pd.DataFrame(CS_plot_rows)
     df_melted_M = pd.DataFrame(M_Val_rows)
 
+    df_melted_CS = df_melted_CS.sort_values("Key")
+    df_melted_M = df_melted_M.sort_values("Key")
+
     # Create the Box Plot - consumer surplus
     plt.figure(figsize=(8, 6))
     sns.boxplot(
-    x="Key", 
-    y="Consumer Surplus", 
-    data=df_melted_CS, 
-    palette="Set2", 
-    order=parameter_order,
-    hue="Key",      
-    legend=False        
-)
+        x="Key", 
+        y="Consumer Surplus", 
+        data=df_melted_CS, 
+        palette="Set2",
+        hue="Key",      
+        legend=False        
+    )
     plt.axhline(y=0, color="black", linestyle="--", linewidth=1.0, zorder=1)
     plt.text(
             x=-0.45,
@@ -1512,9 +1446,9 @@ def PlotWelfareParallel():
         )
 
     
-    plt.xticks(range(len(parameter_order)), parameter_labels)
-    plt.title(f"Consumer Surplus Distribution{title_suffix}", fontsize=14)
-    plt.xlabel("Tested Parameter", fontsize=12)
+
+    plt.title(f"Consumer Surplus Distribution", fontsize=14)
+    plt.xlabel(f"Tested Parameter - {tested_parameter}", fontsize=12)
     plt.ylabel("Consumer Surplus Difference (%)", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
@@ -1524,14 +1458,13 @@ def PlotWelfareParallel():
     # Create the Box Plot - Welfare
     plt.figure(figsize=(8, 6))
     sns.boxplot(
-    x="Key", 
-    y="Innovation", 
-    data=df_melted_M, 
-    palette="Set2", 
-    order=parameter_order,
-    hue="Key",      
-    legend=False        
-)
+        x="Key", 
+        y="Innovation", 
+        data=df_melted_M, 
+        palette="Set2", 
+        hue="Key",      
+        legend=False        
+    )
     plt.axhline(y=0, color="black", linestyle="--", linewidth=1.0, zorder=1)
     plt.text(
             x=-0.45,
@@ -1546,9 +1479,9 @@ def PlotWelfareParallel():
         )
 
 
-    plt.xticks(range(len(parameter_order)), parameter_labels)
-    plt.title(f"Innovation Rate Distribution{title_suffix}", fontsize=14)
-    plt.xlabel("Tested Parameter", fontsize=12)
+
+    plt.title(f"Innovation Rate Distribution", fontsize=14)
+    plt.xlabel(f"Tested Parameter - {tested_parameter}", fontsize=12)
     plt.ylabel("Benchmark Innovation Rate vs Market (%)", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
@@ -1562,6 +1495,19 @@ def PlotStrategyParallel():
 
     ParquetFolder = Path(parquet_folder)
 
+    def convert_parameter(value):
+        try:
+            num = float(value)
+
+            # Keep integers as integers
+            if num.is_integer():
+                return int(num)
+
+            return num
+
+        except ValueError:
+            return value
+
     #Group files by tested parameter
     grouped_files = defaultdict(list)
     for file in ParquetFolder.glob("*.parquet"):
@@ -1571,36 +1517,15 @@ def PlotStrategyParallel():
         if file_name.startswith("run_") and "_" in file_name:
             details = file_name.split("_")
 
-            tested_parameter = details[1] #get parameter name and value 
+            tested_parameter = details[1] #get parameter name 
+            parameter_value = convert_parameter(details[2])
             df = pd.read_parquet(file) #load parquet information into dataframe obj
 
-            grouped_files[tested_parameter].append(df)
+            grouped_files[parameter_value].append(df)
 
     final_data_dict = {}
     for param, df_list in grouped_files.items():
         final_data_dict[param] = pd.concat(df_list, ignore_index=True)
-
-    def parameter_sort_key(parameter):
-        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
-        if number_match:
-            prefix = parameter[:number_match.start()]
-            return (prefix, float(number_match.group()), parameter)
-        return (parameter, float("inf"), parameter)
-
-    parameter_order = sorted(final_data_dict.keys(), key=parameter_sort_key)
-
-    def parameter_display_parts(parameter):
-        number_match = re.search(r'[-+]?\d*\.?\d+(?:[eE][-+]?\d+)?', parameter)
-        if not number_match:
-            return parameter, ""
-        return number_match.group(), parameter[:number_match.start()]
-
-    parameter_parts = [parameter_display_parts(parameter) for parameter in parameter_order]
-    parameter_labels = [label for label, _ in parameter_parts]
-    parameter_prefixes = {prefix for _, prefix in parameter_parts if prefix}
-    title_suffix = ""
-    if len(parameter_prefixes) == 1:
-        title_suffix = f" by {next(iter(parameter_prefixes))}"
 
     strategy_plot_rows = []
     states_plot_rows = []
@@ -1622,22 +1547,22 @@ def PlotStrategyParallel():
 
     df_melted_strategy = pd.DataFrame(strategy_plot_rows)
     df_melted_states = pd.DataFrame(states_plot_rows)
+    df_melted_strategy = df_melted_strategy.sort_values("Key")
+    df_melted_states = df_melted_states.sort_values("Key")
 
     # Create the Box Plot - consumer surplus
     plt.figure(figsize=(8, 6))
     sns.boxplot(
-    x="Key", 
-    y="Convergence Time", 
-    data=df_melted_strategy, 
-    palette="Set2", 
-    order=parameter_order,
-    hue="Key",      
-    legend=False        
-)
-    
-    plt.xticks(range(len(parameter_order)), parameter_labels)
-    plt.title(f"Market Convergence Time{title_suffix}", fontsize=14)
-    plt.xlabel("Tested Parameter", fontsize=12)
+        x="Key", 
+        y="Convergence Time", 
+        data=df_melted_strategy, 
+        palette="Set2", 
+        hue="Key",      
+        legend=False        
+    )
+
+    plt.title(f"Market Convergence Time", fontsize=14)
+    plt.xlabel(f"Tested Parameter - {tested_parameter}", fontsize=12)
     plt.ylabel("Iterations", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
@@ -1647,18 +1572,16 @@ def PlotStrategyParallel():
     # Create the Box Plot - Welfare
     plt.figure(figsize=(8, 6))
     sns.boxplot(
-    x="Key", 
-    y="Unique States", 
-    data=df_melted_states, 
-    palette="Set2", 
-    order=parameter_order,
-    hue="Key",      
-    legend=False        
-)
+        x="Key", 
+        y="Unique States", 
+        data=df_melted_states, 
+        palette="Set2",
+        hue="Key",      
+        legend=False        
+    )
 
-    plt.xticks(range(len(parameter_order)), parameter_labels)
-    plt.title(f"Number of Unique States{title_suffix}", fontsize=14)
-    plt.xlabel("Tested Parameter", fontsize=12)
+    plt.title(f"Number of Unique States", fontsize=14)
+    plt.xlabel(f"Tested Parameter - {tested_parameter}", fontsize=12)
     plt.ylabel("Unique States", fontsize=12)
     plt.grid(axis='y', linestyle='--', alpha=0.7)
 
@@ -1668,33 +1591,22 @@ def PlotStrategyParallel():
 def Parallel_Outputs(MaxFirms):
 
     #Normal plot
-    PlotParallel(column_groups={"Monopoly": r"^MonopolyPrice_F","Leader": r"^LeaderPrice_F","Follower": r"^FollowerPrice_F",},
-                value_name = "Prices")
-    PlotParallel(column_groups={"Monopoly": r"^MonopolyInvest_F","Leader": r"^LeaderInvest_F","Follower": r"^FollowerInvest_F",},
-                value_name = "Investments")
-    PlotParallel(column_groups={"MonopolyL": r"^MonopolyLProfit_F","MonopolyF": r"^MonopolyFProfit_F","Leader": r"^LeaderProfit_F","Follower": r"^FollowerProfit_F"},
-                value_name = "Profits")
-    PlotParallel(column_groups={"MonopolyL": r"^MonopolyLMrktShr_F","MonopolyF": r"^MonopolyFMrktShr_F","Leader": r"^LeaderMrktShr_F","Follower": r"^FollowerMrktShr_F",},
-                value_name = "MarketShares")
+    PlotParallel(value_name = "Price")
+    PlotParallel(value_name = "Invest")
+    PlotParallel(value_name = "Profit")
+    PlotParallel(value_name = "MrktShr")
         
     #Leader Plot
     for leader in range(MaxFirms):
-        PlotParallel(column_groups={"Monopoly": f"^Leader{leader}_MonopolyPrice_F","Leader": f"^Leader{leader}_LeaderPrice_F","Follower": f"^Leader{leader}_FollowerPrice_F",},
-                    value_name = f"Prices_Leader{leader}",
-                    separate_firms=True)
-        PlotParallel(column_groups={"Monopoly": f"^Leader{leader}_MonopolyInvest_F","Leader": f"^Leader{leader}_LeaderInvest_F","Follower": f"^Leader{leader}_FollowerInvest_F",},
-                    value_name = f"Investments_Leader{leader}",
-                    separate_firms=True)
-        PlotParallel(column_groups={"MonopolyL": f"^Leader{leader}_MonopolyLProfit_F","MonopolyF": f"^Leader{leader}_MonopolyFProfit_F","Leader": f"^Leader{leader}_LeaderProfit_F","Follower": f"^Leader{leader}_FollowerProfit_F"},
-                    value_name = f"Profits_Leader{leader}",
-                    separate_firms=True)
-        PlotParallel(column_groups={"MonopolyL": f"^Leader{leader}_MonopolyLMrktShr_F","MonopolyF": f"^Leader{leader}_MonopolyFMrktShr_F","Leader": f"^Leader{leader}_LeaderMrktShr_F","Follower": f"^Leader{leader}_FollowerMrktShr_F",},
-                value_name = f"MarketShares_Leader{leader}",
-                separate_firms=True)
-
+        PlotParallel(value_name = "Price",marketleader=leader)
+        PlotParallel(value_name = "Invest",marketleader=leader)
+        PlotParallel(value_name = "Profit",marketleader=leader)
+        PlotParallel(value_name = "MrktShr",marketleader=leader)
 
     #Welfare Plot
     PlotWelfareParallel()
 
     #Strategy Plot
     PlotStrategyParallel()
+
+PlotParallel(value_name = "Invest")
