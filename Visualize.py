@@ -1339,14 +1339,17 @@ def PlotParallel(value_name,marketleader=None):
         bbox_to_anchor=(0.5, -0.15), 
         ncol=3,                     
         frameon=True,              
-        borderaxespad=0.5           
+        borderaxespad=0.5
     )
-
+   
     for handle in leg.legend_handles:
+        if hasattr(handle, 'set_markersize'):
+            handle.set_markersize(20)
         if hasattr(handle, 'set_sizes'):
             handle.set_sizes([40])
-            handle.set_linewidth(2) 
-
+        if hasattr(handle, 'set_linewidth'):
+            handle.set_linewidth(0.5) 
+    
     # Clean up the labels and title
     plt.title(title)
     plt.xlabel(f"Parameter - {tested_parameter}")
@@ -1608,5 +1611,3 @@ def Parallel_Outputs(MaxFirms):
 
     #Strategy Plot
     PlotStrategyParallel()
-
-PlotParallel(value_name = "Invest")
