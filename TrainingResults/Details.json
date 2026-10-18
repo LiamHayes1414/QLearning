@@ -40,24 +40,24 @@
     "Monopoly Leader Profit": 3018.9154133105885,
     "Monopoly Leader Marketshr": 200.8389218633838,
     "Firm1 Visits": {
-        "Min_F": 3,
-        "Max_F": 22149,
-        "Avg_F": 52.439534391534394,
+        "Min_F": 13,
+        "Max_F": 4340,
+        "Avg_F": 102.34797883597884,
         "Pct_Missed_F": "0.0%",
-        "Min_L": 4,
-        "Max_L": 61321,
-        "Avg_L": 56.35022222222222,
+        "Min_L": 12,
+        "Max_L": 5177,
+        "Avg_L": 102.26844444444444,
         "Pct_Missed_L": "0.0%"
     },
     "Firm2 Visits": {
-        "Min_F": 4,
-        "Max_F": 61435,
-        "Avg_F": 56.35034920634921,
+        "Min_F": 12,
+        "Max_F": 5397,
+        "Avg_F": 102.26857142857143,
         "Pct_Missed_F": "0.0%",
-        "Min_L": 3,
-        "Max_L": 22954,
-        "Avg_L": 52.43940740740741,
+        "Min_L": 12,
+        "Max_L": 4892,
+        "Avg_L": 102.34785185185186,
         "Pct_Missed_L": "0.0%"
     },
-    "Rounds": 2570158
+    "Rounds": 4834063
 }

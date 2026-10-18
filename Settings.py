@@ -14,7 +14,7 @@ class Config:
     lags: int = 1
     firms: int = 2
     mrktsz: int = 1000
-    caplen:int = 10**9 #hard cap at 1B iterations
+    caplen:int = 10**10 #hard cap at 10B iterations
     startingM:int=1
     #Demand features
     mc: int = 1
@@ -30,10 +30,9 @@ class Config:
     investments_count = 7
     price_interval_margin = 0.02
     investment_interval_margin = 0.1
-    #based on above values     _States_                      _actions_             visit each ~X times
-    explorationlen: int = (prices_count**(firms*lags)) * (prices_count*investments_count) * 500
-    epsilon_decay: float = -1/(explorationlen)
     objective:str="profit"
+    explorationlen: int = None
+    epsilon_decay: float = None
 
     #Holder variables
     MonopolyP: float = None
@@ -70,6 +69,11 @@ class Config:
         elif self.firms == 1:
             self.position_options: list =  [1] #monopoly always leader
         num_followers = self.firms - 1 
+
+        #initialize exploration length (needed on init so parameters input can be account for before calculating below)
+        #based on above values     _States_                      _actions_             visit each ~X times
+        self.explorationlen = (self.prices_count**(self.firms*self.lags)) * 2 * (self.prices_count*self.investments_count) * 100
+        self.epsilon_decay = -1/(self.explorationlen)
 
 
         """PRICING_____________________________________________________________________________"""

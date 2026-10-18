@@ -10,6 +10,7 @@ class Firm:
         self.state_shape = state_shape #to use in anlysis
 
         self.Q_matrix = np.zeros(state_shape + action_shape)
+
         self.visit_counts = np.zeros(state_shape + action_shape, dtype=np.int32) 
         #^store how many times each state action part is visited to make the model aware of its confidence
 
@@ -53,6 +54,7 @@ class Firm:
  
         if np.random.random() < epsilon: 
             #within probability of epsilon, choose least visited action
+            
             min_visits = np.min(state_action_visits)
             min_indices = np.flatnonzero(state_action_visits == min_visits)
             action_index = min_indices[0]

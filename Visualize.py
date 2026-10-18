@@ -11,7 +11,7 @@ from pathlib import Path
 import pandas as pd
 from collections import defaultdict
 import seaborn as sns
-import re
+from matplotlib.colors import Normalize, ListedColormap
 
 def add_equilibrium_lines(ax, title, config, label_x,linewidth=1.2,size=8,borderWidth=0.5):
     monopoly_colour = '#C62828'
@@ -376,23 +376,36 @@ def plot_visit_counts_3d(
             visit_grid = plot_counts.T
             
             #smooth matrix for faster plotting
-            block_size = 1 if counts.shape[leader_axis] == 1 else len(action_indices)//2
-            smooth_states = block_average_2d(state_grid, block_size)
-            smooth_actions = block_average_2d(action_grid, block_size)
-            smooth_visits = block_average_2d(visit_grid, block_size)
+            #block_size = 1 if counts.shape[leader_axis] == 1 else len(action_indices)//2
+            #smooth_states = block_average_2d(state_grid, block_size)
+            #smooth_actions = block_average_2d(action_grid, block_size)
+            #smooth_visits = block_average_2d(visit_grid, block_size)
        
-            if np.any(visit_grid):
-                surface = ax.plot_surface(
-                    smooth_states,
-                    smooth_actions,
-                    smooth_visits,
-                    cmap=cmap,
-                    linewidth=0,
-                    antialiased=False,
-                    alpha=0.95,
-                )
-                surfaces.append((surface,Position_text))
+            # Plot all visit counts normally
+            surface = ax.plot_surface(
+                state_grid,
+                action_grid,
+                visit_grid,
+                cmap=cmap,
+                linewidth=0,
+                antialiased=False,
+                alpha=0.95,
+            )
 
+            # Highlight zero-visit cells in red
+            zero_mask = visit_grid == 0
+
+            if np.any(zero_mask):
+                ax.scatter(
+                    state_grid[zero_mask],
+                    action_grid[zero_mask],
+                    np.full(np.sum(zero_mask), 2000),
+                    color="red",
+                    s=12,
+                    marker="s",
+                    alpha=1.0,
+                    depthshade=False,
+                )
      
 
             if leader_value == 1:
@@ -425,7 +438,7 @@ def plot_visit_counts_3d(
         )
 
         ax.set_title(title)
-        ax.set_xlabel("Grouped flattened state index")
+        ax.set_xlabel("Flattened state index")
         ax.set_ylabel("Action index")
         ax.set_zlim(bottom=0)
 
@@ -1093,22 +1106,23 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
     #Save results
     for idx in range(len(firm_profit_avgs)):
 
+        data[f'Price_F{idx}'] = firm_price_avgs[idx]
+        data[f'Invest_F{idx}'] = firm_invest_avgs[idx]
+        data[f'Profit_F{idx}'] = firm_profit_avgs[idx]
+        data[f'MrktShr_F{idx}'] = firm_mrktshr_avgs[idx]
+
         if config.firms>1:
             #Prices
-            data[f'Price_F{idx}'] = firm_price_avgs[idx]
             data['LeaderPrice_Benchmark'] = LeaderB_Price
             data['FollowerPrice_Benchmark'] = FollowerB_Price
             #Investments
-            data[f'Invest_F{idx}'] = firm_invest_avgs[idx]
             data['LeaderInvest_Benchmark'] = LeaderB_Invest
             data['FollowerInvest_Benchmark'] = FollowerB_Invest
             #Profit
-            data[f'Profit_F{idx}'] = firm_profit_avgs[idx]
             data['LeaderProfit_Benchmark'] = LeaderB_Profit
             data['FollowerProfit_Benchmark'] = FollowerB_Profit
             data['MonopolyFProfit_Benchmark'] = MonopolyFB_Profit
             #Marketshare
-            data[f'MrktShr_F{idx}'] = firm_mrktshr_avgs[idx]
             data['LeaderMrktShr_Benchmark'] = LeaderB_MrktShr
             data['FollowerMrktShr_Benchmark'] = FollowerB_MrktShr
             data['MonopolyFMrktShr_Benchmark'] = MonopolyFB_MrktShr
@@ -1134,15 +1148,15 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
 
         #Save results
         for idx in range(len(leader_avg_price)):
-            if config.firms>1:
-                #Prices
-                data[f'Price_F{idx}_Leader{int(leader)}'] = leader_avg_price[idx]
-                #Investments
-                data[f'Invest_F{idx}_Leader{int(leader)}'] = leader_avg_invest[idx]
-                #Profit
-                data[f'Profit_F{idx}_Leader{int(leader)}'] = leader_avg_profit[idx]
-                #Marketshare
-                data[f'MrktShr_F{idx}_Leader{int(leader)}'] = leader_avg_mrktshr[idx]
+           
+            #Prices
+            data[f'Price_F{idx}_Leader{int(leader)}'] = leader_avg_price[idx]
+            #Investments
+            data[f'Invest_F{idx}_Leader{int(leader)}'] = leader_avg_invest[idx]
+            #Profit
+            data[f'Profit_F{idx}_Leader{int(leader)}'] = leader_avg_profit[idx]
+            #Marketshare
+            data[f'MrktShr_F{idx}_Leader{int(leader)}'] = leader_avg_mrktshr[idx]
 
             
     #_Welfare_
@@ -1225,60 +1239,91 @@ def PlotParallel(value_name,marketleader=None):
         if value_name == "Price":
             if marketleader is not None:
                 matched_columns = curr_df.filter(regex=fr'^Price_F\d+_Leader{int(marketleader)}$')
-                leader_benchmark = curr_df.filter(regex=fr'^LeaderPrice_Benchmark').squeeze().unique().tolist()
-                follower_benchmark = curr_df.filter(regex=fr'^FollowerPrice_Benchmark').squeeze().unique().tolist()
+                
+                if not curr_df.filter(regex=fr'^LeaderPrice_Benchmark').empty:
+                    leader_benchmark = curr_df.filter(regex=fr'^LeaderPrice_Benchmark').squeeze().unique().tolist()
+                    follower_benchmark = curr_df.filter(regex=fr'^FollowerPrice_Benchmark').squeeze().unique().tolist()
                 monopolyL_benchmark = curr_df.filter(regex=fr'^MonopolyPrice_Benchmark').squeeze().unique().tolist()
             else:   
                 matched_columns = curr_df.filter(regex=r'^Price_F\d+$')
-                leader_benchmark = curr_df.filter(regex=r'^LeaderPrice_Benchmark').squeeze().unique().tolist()
-                follower_benchmark = curr_df.filter(regex=r'^FollowerPrice_Benchmark').squeeze().unique().tolist()
+                if not curr_df.filter(regex=fr'^LeaderPrice_Benchmark').empty:
+                    leader_benchmark = curr_df.filter(regex=r'^LeaderPrice_Benchmark').squeeze().unique().tolist()
+                    follower_benchmark = curr_df.filter(regex=r'^FollowerPrice_Benchmark').squeeze().unique().tolist()
                 monopolyL_benchmark = curr_df.filter(regex=r'^MonopolyPrice_Benchmark').squeeze().unique().tolist()
             monopolyF_benchmark = [None]
+            if curr_df.filter(regex=fr'^LeaderPrice_Benchmark').empty:
+                leader_benchmark = [None]
+                follower_benchmark = [None]
+
         elif value_name =="Invest":
             if marketleader is not None:
                 matched_columns = curr_df.filter(regex=fr'^Invest_F\d+_Leader{int(marketleader)}$')
-                leader_benchmark = curr_df.filter(regex=fr'^LeaderInvest_Benchmark').squeeze().unique().tolist()
-                follower_benchmark = curr_df.filter(regex=fr'^FollowerInvest_Benchmark').squeeze().unique().tolist()
+                if not curr_df.filter(regex=fr'^LeaderInvest_Benchmark').empty:
+                    leader_benchmark = curr_df.filter(regex=fr'^LeaderInvest_Benchmark').squeeze().unique().tolist()
+                    follower_benchmark = curr_df.filter(regex=fr'^FollowerInvest_Benchmark').squeeze().unique().tolist()
                 monopolyL_benchmark = curr_df.filter(regex=fr'^MonopolyInvest_Benchmark').squeeze().unique().tolist()
             else:
                 matched_columns = curr_df.filter(regex=r'^Invest_F\d+$')
-                leader_benchmark = curr_df.filter(regex=r'^LeaderInvest_Benchmark').squeeze().unique().tolist()
-                follower_benchmark = curr_df.filter(regex=r'^FollowerInvest_Benchmark').squeeze().unique().tolist()
+                if not curr_df.filter(regex=fr'^LeaderInvest_Benchmark').empty:
+                    leader_benchmark = curr_df.filter(regex=r'^LeaderInvest_Benchmark').squeeze().unique().tolist()
+                    follower_benchmark = curr_df.filter(regex=r'^FollowerInvest_Benchmark').squeeze().unique().tolist()
                 monopolyL_benchmark = curr_df.filter(regex=r'^MonopolyInvest_Benchmark').squeeze().unique().tolist()
             monopolyF_benchmark = [None]
+            if curr_df.filter(regex=fr'^LeaderInvest_Benchmark').empty:
+                leader_benchmark = [None]
+                follower_benchmark = [None]
+
         elif value_name =="Profit":
             if marketleader is not None:
                 matched_columns = curr_df.filter(regex=fr'^Profit_F\d+_Leader{int(marketleader)}$')
-                leader_benchmark = curr_df.filter(regex=fr'^LeaderProfit_Benchmark').squeeze().unique().tolist()
-                follower_benchmark = curr_df.filter(regex=fr'^FollowerProfit_Benchmark').squeeze().unique().tolist()
+                if not curr_df.filter(regex=fr'^LeaderProfit_Benchmark').empty:
+                    leader_benchmark = curr_df.filter(regex=fr'^LeaderProfit_Benchmark').squeeze().unique().tolist()
+                    follower_benchmark = curr_df.filter(regex=fr'^FollowerProfit_Benchmark').squeeze().unique().tolist()
+                    monopolyF_benchmark = curr_df.filter(regex=fr'^MonopolyFProfit_Benchmark').squeeze().unique().tolist()
                 monopolyL_benchmark = curr_df.filter(regex=fr'^MonopolyLProfit_Benchmark').squeeze().unique().tolist()
-                monopolyF_benchmark = curr_df.filter(regex=fr'^MonopolyFProfit_Benchmark').squeeze().unique().tolist()
+                
             else:
                 matched_columns = curr_df.filter(regex=r'^Profit_F\d+$')
-                leader_benchmark = curr_df.filter(regex=r'^LeaderProfit_Benchmark').squeeze().unique().tolist()
-                follower_benchmark = curr_df.filter(regex=r'^FollowerProfit_Benchmark').squeeze().unique().tolist()
+                if not curr_df.filter(regex=fr'^LeaderProfit_Benchmark').empty:
+                    leader_benchmark = curr_df.filter(regex=r'^LeaderProfit_Benchmark').squeeze().unique().tolist()
+                    follower_benchmark = curr_df.filter(regex=r'^FollowerProfit_Benchmark').squeeze().unique().tolist()
+                    monopolyF_benchmark = curr_df.filter(regex=r'^MonopolyFProfit_Benchmark').squeeze().unique().tolist()
                 monopolyL_benchmark = curr_df.filter(regex=r'^MonopolyLProfit_Benchmark').squeeze().unique().tolist()
-                monopolyF_benchmark = curr_df.filter(regex=r'^MonopolyFProfit_Benchmark').squeeze().unique().tolist()
+            if curr_df.filter(regex=fr'^LeaderProfit_Benchmark').empty:
+                leader_benchmark = [None]
+                follower_benchmark = [None]
+                monopolyF_benchmark = [None]
+                
         elif value_name =="MrktShr":
             if marketleader is not None:
                 matched_columns = curr_df.filter(regex=fr'^MrktShr_F\d+_Leader{int(marketleader)}$')
-                leader_benchmark = curr_df.filter(regex=fr'^LeaderMrktShr_Benchmark').squeeze().unique().tolist()
-                follower_benchmark = curr_df.filter(regex=fr'^FollowerMrktShr_Benchmark').squeeze().unique().tolist()
+                if not curr_df.filter(regex=fr'^LeaderMrktShr_Benchmark').empty:
+                    leader_benchmark = curr_df.filter(regex=fr'^LeaderMrktShr_Benchmark').squeeze().unique().tolist()
+                    follower_benchmark = curr_df.filter(regex=fr'^FollowerMrktShr_Benchmark').squeeze().unique().tolist()
+                    monopolyF_benchmark = curr_df.filter(regex=fr'^MonopolyFMrktShr_Benchmark').squeeze().unique().tolist()
                 monopolyL_benchmark = curr_df.filter(regex=fr'^MonopolyLMrktShr_Benchmark').squeeze().unique().tolist()
-                monopolyF_benchmark = curr_df.filter(regex=fr'^MonopolyFMrktShr_Benchmark').squeeze().unique().tolist()
+                
             else:
                 matched_columns = curr_df.filter(regex=r'^MrktShr_F\d+$')
-                leader_benchmark = curr_df.filter(regex=r'^LeaderMrktShr_Benchmark').squeeze().unique().tolist()
-                follower_benchmark = curr_df.filter(regex=r'^FollowerMrktShr_Benchmark').squeeze().unique().tolist()
+                if not curr_df.filter(regex=fr'^LeaderMrktShr_Benchmark').empty:
+                    leader_benchmark = curr_df.filter(regex=r'^LeaderMrktShr_Benchmark').squeeze().unique().tolist()
+                    follower_benchmark = curr_df.filter(regex=r'^FollowerMrktShr_Benchmark').squeeze().unique().tolist()
+                    monopolyF_benchmark = curr_df.filter(regex=r'^MonopolyFMrktShr_Benchmark').squeeze().unique().tolist()
                 monopolyL_benchmark = curr_df.filter(regex=r'^MonopolyLMrktShr_Benchmark').squeeze().unique().tolist()
-                monopolyF_benchmark = curr_df.filter(regex=r'^MonopolyFMrktShr_Benchmark').squeeze().unique().tolist()
+            if curr_df.filter(regex=fr'^LeaderMrktShr_Benchmark').empty:
+                leader_benchmark = [None]
+                follower_benchmark = [None]
+                monopolyF_benchmark = [None]
+                
 
         #should only be 1 unique benchmark per column
         if len(leader_benchmark)>1 or len(follower_benchmark)>1 or len(monopolyL_benchmark)>1 or len(monopolyF_benchmark)>1:
             raise ValueError("More than 1 unique benchmark")
         
         for idx, firm_column in enumerate(matched_columns.columns, start=1):
-            for row_index, value in matched_columns[firm_column].dropna().items():
+    
+            
+            for row_index, value in matched_columns[firm_column].items():
                 plot_rows.append({
                             "Parameter": param_val,
                             "Firm": f"Firm {idx}",

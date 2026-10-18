@@ -5,7 +5,7 @@ from Settings import Config
 import numpy as np
 import time
 from tqdm import tqdm
-from Visualize import plotting, leaderplots,strategy,Welfare_Plot,Routine_Results,reactions
+from Visualize import plotting, leaderplots,strategy,Welfare_Plot,Routine_Results,reactions,plot_visit_counts_3d
 import json
 import random
 from Helper import format_eta,NumpyEncoder
@@ -68,7 +68,7 @@ def Simulate(ClusterTest=False,Progress=True):
     ConsumerSurplus = config.ConsumerSurplus
     initialM = config.startingM
     objective = config.objective
-
+ 
     #Possible state and action vectors
     Possible_States = list(product(*( [prices] * (firms * lags) + [positions] )))
     Possible_Actions = list(product(prices, investments))
@@ -115,7 +115,7 @@ def Simulate(ClusterTest=False,Progress=True):
     Round = 0
     Stat_log_Counter = 0
     Firm_Stationarity = [0]
-    Stationarity_Target = 200000
+    Stationarity_Target = 50000
     training_start = time.perf_counter()
     No_ConvergCap = None
     No_Convergence = False
@@ -127,8 +127,10 @@ def Simulate(ClusterTest=False,Progress=True):
                 No_Convergence = True
                 No_ConvergCap = Round+Stationarity_Target
                 #add 200k more rounds and record data even though its not converged
+                print("Not Converged")
 
             if Round == No_ConvergCap:
+                print("No converge cap hit")
                 break
             
             epsilon = max((epsilon_decay * Round) + 1,0)
@@ -330,7 +332,7 @@ def Simulate(ClusterTest=False,Progress=True):
         plot_start = time.perf_counter()
         plotting((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog),config,Downsample_len,Stat_log_Counter)
         if config.investments_count>1 and firms>1:leaderplots((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog), config, Downsample_len,Stat_log_Counter)
-        #plot_visit_counts_3d(Firms)
+        plot_visit_counts_3d(Firms)
         strategy(State_logs,Firms,config)
         Welfare_Plot(CS_Theory,CS_Real,M_Theory,M_Real)
         reactions(Firms,Possible_States,Possible_Actions,config)
@@ -340,8 +342,6 @@ def Simulate(ClusterTest=False,Progress=True):
         print(f"Rounds: {Round}")
 
         for i, f in enumerate(Firms):
-            zeros_count = np.sum(f.visit_counts == 0)
-            total_size = f.visit_counts.size
             config.Details[f'Firm{i+1} Visits'] = {
                 "Min_F":np.min(f.visit_counts[..., 0, :]),
                 "Max_F":np.max(f.visit_counts[..., 0, :]),
@@ -378,6 +378,6 @@ def Simulate(ClusterTest=False,Progress=True):
             Price_statlog,Invest_statlog,Profits_statlog,State_logs,CS_Theory_Stat,CS_Real_Stat,M_Theory_Stat,M_Real_Stat,MarketShares_Stat,Round,
             config,params,args.iteration)
 
-Simulate(True,False) #cluster
-#Simulate() # local
+#Simulate(True,False) #cluster
+Simulate() # local
 #Simulate(True,True) #cluster progress
