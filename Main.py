@@ -26,6 +26,7 @@ def Simulate(ClusterTest=False,Progress=True):
     parser.add_argument("--mrktsz",type=float,default=None)
     parser.add_argument("--mc",type=float,default=None)
     parser.add_argument("--objective", type=str, default=None)
+    parser.add_argument("--investments", type=int, default=None)
 
         #simulation details
     parser.add_argument("--plot", type=float, default=False)
@@ -42,7 +43,8 @@ def Simulate(ClusterTest=False,Progress=True):
         "alpha":args.alpha,
         "mrktsz":args.mrktsz,
         "mc":args.mc,
-        "objective":args.objective
+        "objective":args.objective,
+        "investments_count":args.investments
     }
 
     # Remove None values
@@ -378,6 +380,6 @@ def Simulate(ClusterTest=False,Progress=True):
             Price_statlog,Invest_statlog,Profits_statlog,State_logs,CS_Theory_Stat,CS_Real_Stat,M_Theory_Stat,M_Real_Stat,MarketShares_Stat,Round,
             config,params,args.iteration)
 
-#Simulate(True,False) #cluster
-Simulate() # local
+Simulate(True,False) #cluster
+#Simulate() # local
 #Simulate(True,True) #cluster progress

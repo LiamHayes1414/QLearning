@@ -27,7 +27,7 @@ class Config:
     learningrate: float = 0.25
     #State variables
     prices_count = 15
-    investments_count = 7
+    investments_count:int = 7
     price_interval_margin = 0.02
     investment_interval_margin = 0.1
     objective:str="profit"

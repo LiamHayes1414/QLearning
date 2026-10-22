@@ -1191,6 +1191,8 @@ def Routine_Results(PriceStat,InvestStat,ProfitStat,State_logs,CS_Theory,CS_Real
     else:
         key, value = next(iter(TestParameter.items()))
 
+    key = key.replace("_", "")
+
     df.to_parquet(f"{OutputLoc}/run_{key}_{value}_{ParIt}.parquet")
 
 def PlotParallel(value_name,marketleader=None):
