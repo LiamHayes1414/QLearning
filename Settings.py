@@ -18,8 +18,8 @@ class Config:
     startingM:int=1
     #Demand features
     mc: int = 1
-    a: float = 0.1
-    b: float = 0.5
+    alpha: float = 0.1
+    beta: float = 0.5
     demand: Optional[DemandFn] = None
     K: float = 100  # Chance for no innovation to occur
     delta: float = 0.95
@@ -84,15 +84,15 @@ class Config:
             def price_equations(vars):
                 P, p = vars  # P is Leader, p is Follower
                         
-                D = (num_followers * math.exp(-self.a * p)) + ((1 + self.b) * math.exp(-self.a * P)) + 1
+                D = (num_followers * math.exp(-self.alpha * p)) + ((1 + self.beta) * math.exp(-self.alpha * P)) + 1
                         
                 #market shares
-                s_L = ((1 + self.b) * math.exp(-self.a * P)) / D
-                s_f = math.exp(-self.a * p) / D
+                s_L = ((1 + self.beta) * math.exp(-self.alpha * P)) / D
+                s_f = math.exp(-self.alpha * p) / D
                         
                 #Follower and leader formula's equal to zero (proved on paper)
-                eq_leader = self.mc + (1 / (self.a * (1 - s_L))) - P
-                eq_follower = self.mc + (1 / (self.a * (1 - s_f))) - p
+                eq_leader = self.mc + (1 / (self.alpha * (1 - s_L))) - P
+                eq_follower = self.mc + (1 / (self.alpha * (1 - s_f))) - p
                         
                 return [eq_leader, eq_follower]
 
@@ -109,7 +109,7 @@ class Config:
         #calculate price options
         def MonopolyPrice(p):
             #solve for p in given function (formula derived on paper)
-            formula = ((1+ (num_followers+1+self.b)*math.exp(-self.a * p))/self.a) + self.mc
+            formula = ((1+ (num_followers+1+self.beta)*math.exp(-self.alpha * p))/self.alpha) + self.mc
 
             """
             Monopoly Price 
@@ -137,11 +137,11 @@ class Config:
         """INVESTMENT_____________________________________________________________________________ """
 
         if self.firms >1:
-            D = (num_followers * math.exp(-self.a * follower_price)) + ((1 + self.b) * math.exp(-self.a * leader_price)) + 1
+            D = (num_followers * math.exp(-self.alpha * follower_price)) + ((1 + self.beta) * math.exp(-self.alpha * leader_price)) + 1
             
 
-            s_L = (((1 + self.b) * math.exp(-self.a * leader_price)) / D) *self.mrktsz
-            s_f = (math.exp(-self.a * follower_price) / D) *self.mrktsz
+            s_L = (((1 + self.beta) * math.exp(-self.alpha * leader_price)) / D) *self.mrktsz
+            s_f = (math.exp(-self.alpha * follower_price) / D) *self.mrktsz
             #Profit gap
             Profit_Gap = ((leader_price - self.mc)*s_L) - ((follower_price - self.mc)*s_f) 
 
@@ -161,21 +161,21 @@ class Config:
 
         """PROFITS_____________________________________________________________________________ """
         if self.firms>1:
-            D = (num_followers * math.exp(-self.a * follower_price)) + ((1 + self.b) * math.exp(-self.a * leader_price)) + 1
-            MonopolyD = (num_followers * math.exp(-self.a * monopoly_price)) + ((1 + self.b) * math.exp(-self.a * monopoly_price)) + 1 
+            D = (num_followers * math.exp(-self.alpha * follower_price)) + ((1 + self.beta) * math.exp(-self.alpha * leader_price)) + 1
+            MonopolyD = (num_followers * math.exp(-self.alpha * monopoly_price)) + ((1 + self.beta) * math.exp(-self.alpha * monopoly_price)) + 1 
 
             #Market shares
-            monopoly_follower_marketshare = (math.exp(-self.a * monopoly_price)/MonopolyD)*self.mrktsz
-            leader_marketshare = ((1+self.b)*math.exp(-self.a * leader_price)/D)*self.mrktsz
-            follower_marketshare = (math.exp(-self.a * follower_price)/D)*self.mrktsz
+            monopoly_follower_marketshare = (math.exp(-self.alpha * monopoly_price)/MonopolyD)*self.mrktsz
+            leader_marketshare = ((1+self.beta)*math.exp(-self.alpha * leader_price)/D)*self.mrktsz
+            follower_marketshare = (math.exp(-self.alpha * follower_price)/D)*self.mrktsz
 
             monopoly_follower_profits = ((monopoly_price - self.mc)*monopoly_follower_marketshare) - monopoly_investment
 
         else:
-            MonopolyD =  ((1 + self.b) * math.exp(-self.a * monopoly_price)) + 1
+            MonopolyD =  ((1 + self.beta) * math.exp(-self.alpha * monopoly_price)) + 1
 
         #Market Shares - monopoly leader
-        monopoly_leader_marketshare = ((1+self.b)*math.exp(-self.a * monopoly_price)/MonopolyD)*self.mrktsz
+        monopoly_leader_marketshare = ((1+self.beta)*math.exp(-self.alpha * monopoly_price)/MonopolyD)*self.mrktsz
         
         monopoly_leader_profits = ((monopoly_price - self.mc)*monopoly_leader_marketshare) - monopoly_investment
         
@@ -230,9 +230,9 @@ class Config:
         self.MonopolyLeaderMrktShr = monopoly_leader_marketshare
 
     def mult_nomial(self, prices:np.ndarray, Leader:np.ndarray):
-        Prod_Attractiveness = np.exp(-self.a*prices)
+        Prod_Attractiveness = np.exp(-self.alpha*prices)
 
-        Leader_Multiplier = 1+ (self.b* Leader)
+        Leader_Multiplier = 1+ (self.beta* Leader)
         Prod_Attractiveness = Prod_Attractiveness * Leader_Multiplier
 
         MarketDemand = np.sum(Prod_Attractiveness) + 1
@@ -258,17 +258,17 @@ class Config:
             CS_static_theory = (
                 math.log(
                     1
-                    + (1 + self.b) * math.exp(-self.a * self.LeaderP)
-                    + num_followers * math.exp(-self.a * self.FollowerP)
-                ) / self.a
+                    + (1 + self.beta) * math.exp(-self.alpha * self.LeaderP)
+                    + num_followers * math.exp(-self.alpha * self.FollowerP)
+                ) / self.alpha
             )
 
             CS_static_real = (
                 math.log(
                     1
-                    + ((1 + self.b) * math.exp(-self.a * LeaderGamePrice) if LeaderExists else 0) 
-                    + np.sum(np.exp(-self.a * FollowerGamePrices))
-                ) / self.a
+                    + ((1 + self.beta) * math.exp(-self.alpha * LeaderGamePrice) if LeaderExists else 0) 
+                    + np.sum(np.exp(-self.alpha * FollowerGamePrices))
+                ) / self.alpha
             )
             
         else: #monopoly
@@ -277,10 +277,10 @@ class Config:
             CS_static_theory = (
                 math.log(
                     1
-                    + (1 + self.b) * math.exp(-self.a * self.MonopolyP)
-                ) / self.a
+                    + (1 + self.beta) * math.exp(-self.alpha * self.MonopolyP)
+                ) / self.alpha
             )
 
-            CS_static_real = (math.log(1+ (1 + self.b) * math.exp(-self.a * LeaderGamePrice)) / self.a)
+            CS_static_real = (math.log(1+ (1 + self.beta) * math.exp(-self.alpha * LeaderGamePrice)) / self.alpha)
         
         return CS_static_theory,CS_static_real,ExpectedM
