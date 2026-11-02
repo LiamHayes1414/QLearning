@@ -33,6 +33,7 @@ class Config:
     objective:str="profit"
     explorationlen: int = None
     epsilon_decay: float = None
+    minexplorprob: float = 0
 
     #Holder variables
     MonopolyP: float = None

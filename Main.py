@@ -27,6 +27,7 @@ def Simulate(ClusterTest=False,Progress=True):
     parser.add_argument("--mc",type=float,default=None)
     parser.add_argument("--objective", type=str, default=None)
     parser.add_argument("--investments", type=int, default=None)
+    parser.add_argument("--minexplor", type=float, default=None)
 
         #simulation details
     parser.add_argument("--plot", type=float, default=False)
@@ -44,7 +45,8 @@ def Simulate(ClusterTest=False,Progress=True):
         "mrktsz":args.mrktsz,
         "mc":args.mc,
         "objective":args.objective,
-        "investments_count":args.investments
+        "investments_count":args.investments,
+        "minexplorprob":args.minexplor
     }
 
     # Remove None values
@@ -70,7 +72,8 @@ def Simulate(ClusterTest=False,Progress=True):
     ConsumerSurplus = config.ConsumerSurplus
     initialM = config.startingM
     objective = config.objective
- 
+    min_explor_prob = config.minexplorprob
+
     #Possible state and action vectors
     Possible_States = list(product(*( [prices] * (firms * lags) + [positions] )))
     Possible_Actions = list(product(prices, investments))
@@ -135,7 +138,7 @@ def Simulate(ClusterTest=False,Progress=True):
                 print("No converge cap hit")
                 break
             
-            epsilon = max((epsilon_decay * Round) + 1,0)
+            epsilon = max((epsilon_decay * Round) + 1,min_explor_prob)
           
 
             Prices = []
@@ -177,7 +180,17 @@ def Simulate(ClusterTest=False,Progress=True):
                     for i, value in enumerate(Profits_array)
                     ])
                 Firm_Objective = differences
-    
+
+            elif objective == "asym":
+                Profits_array = np.array(Profit)
+                differences = np.array([
+                    value - np.mean(np.delete(Profits_array, i))
+                    for i, value in enumerate(Profits_array)
+                    ])
+                #create 1 firm that is rivaling and rest are profit max
+                Profits_array[-1] = differences[-1]
+                Firm_Objective = Profits_array
+
             #Calculate best possible outcomes next period 
             Leader_Best = []
             Follower_Best = []
