@@ -120,7 +120,7 @@ def Simulate(ClusterTest=False,Progress=True):
     Round = 0
     Stat_log_Counter = 0
     Firm_Stationarity = [0]
-    Stationarity_Target = 50000
+    Stationarity_Target = 200000
     training_start = time.perf_counter()
     No_ConvergCap = None
     No_Convergence = False
@@ -393,6 +393,6 @@ def Simulate(ClusterTest=False,Progress=True):
             Price_statlog,Invest_statlog,Profits_statlog,State_logs,CS_Theory_Stat,CS_Real_Stat,M_Theory_Stat,M_Real_Stat,MarketShares_Stat,Round,
             config,params,args.iteration)
 
-#Simulate(True,False) #cluster
-Simulate() # local
+Simulate(True,False) #cluster
+#Simulate() # local
 #Simulate(True,True) #cluster progress
