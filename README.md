@@ -1,6 +1,6 @@
 # Q-Learning Market Simulation
 
-This project simulates firms that repeatedly choose prices and investment levels in a differentiated-products market. Each firm learns which action to take in each market state using a Q-learning approach. The simulation can compare firms that optimize different objectives and records outcomes such as prices, profits, market shares, and consumer surplus.
+This project simulates firms that repeatedly choose prices and investment levels in a dynamic market. Each firm learns which action to take in each market state using a Q-learning approach. The simulation can compare firms that optimize different objectives and records outcomes such as prices, profits, market shares, and consumer surplus.
 
 ## Code structure
 
