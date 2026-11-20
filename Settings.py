@@ -73,7 +73,7 @@ class Config:
 
         #initialize exploration length (needed on init so parameters input can be account for before calculating below)
         #based on above values     _States_                      _actions_             visit each ~X times
-        self.explorationlen = (self.prices_count**(self.firms*self.lags)) * 2 * (self.prices_count*self.investments_count) * 100
+        self.explorationlen = max((self.prices_count**(self.firms*self.lags)) * 2 * (self.prices_count*self.investments_count) * 300,1000000)
         self.epsilon_decay = -1/(self.explorationlen)
 
 

@@ -35,4 +35,4 @@ Simulation parameters can be provided as command-line options. For example:
 python Main.py --firms 2 --lags 1 --K 100 --objective profit
 ```
 
-See the arguments defined in `Main.py` for the full list of configurable parameters. Simulation outputs are written to the TrainingResults directories.
+See the arguments defined in `Main.py` for the full list of configurable parameters. Simulation outputs are written to the TrainingResults directories. The full list of parameters can also be modified directly in the `Settings.py` file. 

@@ -393,6 +393,6 @@ def Simulate(ClusterTest=False,Progress=True):
             Price_statlog,Invest_statlog,Profits_statlog,State_logs,CS_Theory_Stat,CS_Real_Stat,M_Theory_Stat,M_Real_Stat,MarketShares_Stat,Round,
             config,params,args.iteration)
 
-Simulate(True,False) #cluster
-#Simulate() # local
+#Simulate(True,False) #cluster
+Simulate() # local
 #Simulate(True,True) #cluster progress
