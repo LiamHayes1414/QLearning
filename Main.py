@@ -120,7 +120,7 @@ def Simulate(ClusterTest=False,Progress=True):
     Round = 0
     Stat_log_Counter = 0
     Firm_Stationarity = [0]
-    Stationarity_Target = 100000
+    Stationarity_Target = 200000
     training_start = time.perf_counter()
     No_ConvergCap = None
     No_Convergence = False
