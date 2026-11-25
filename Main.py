@@ -5,7 +5,7 @@ from Settings import Config
 import numpy as np
 import time
 from tqdm import tqdm
-from Visualize import plotting, leaderplots,strategy,Welfare_Plot,Routine_Results,reactions,plot_visit_counts_3d
+from Visualize import plotting, leaderplots,strategy,Welfare_Plot,Routine_Results,reactions,plot_visit_counts_3d,MatrixAnimation
 import json
 import random
 from Helper import format_eta,NumpyEncoder
@@ -94,7 +94,7 @@ def Simulate(ClusterTest=False,Progress=True):
         State_log.append([prices[0]]*firms)
 
     Industry_m = initialM
-    Downsample_len = 2000
+    Downsample_len = 10000
         #fixed experimentation log
     Profits_explog = []
     Price_explog = []
@@ -120,7 +120,7 @@ def Simulate(ClusterTest=False,Progress=True):
     Round = 0
     Stat_log_Counter = 0
     Firm_Stationarity = [0]
-    Stationarity_Target = 200000
+    Stationarity_Target = 100000
     training_start = time.perf_counter()
     No_ConvergCap = None
     No_Convergence = False
@@ -283,7 +283,8 @@ def Simulate(ClusterTest=False,Progress=True):
                 Profits_explog.append(np.append(Profit,LeaderIndex))
                 Price_explog.append(np.append(Price_Actions,LeaderIndex))
                 Invest_explog.append(np.append(Investment_Actions,LeaderIndex))
-             
+                
+                
                 
                 #See how many entries are recorded past experimentation (not downsampled)
                 if Round>ExpLen:Stat_log_Counter+=1
@@ -294,8 +295,7 @@ def Simulate(ClusterTest=False,Progress=True):
                 CS_Real.append(CS_R)
                 M_Theory.append(M_Expected)
                 M_Real.append(Industry_m)
-
-
+                
             if min(Firm_Stationarity) == 0 and not No_Convergence:
                 #if Q matrix changes dump stat log
                 Profits_statlog = []
@@ -345,9 +345,10 @@ def Simulate(ClusterTest=False,Progress=True):
     #Process results
     if args.plot or not ClusterTest:
         plot_start = time.perf_counter()
+   
         plotting((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog),config,Downsample_len,Stat_log_Counter)
         if config.investments_count>1 and firms>1:leaderplots((Profits_explog,Profits_statlog), (Price_explog,Price_statlog), (Invest_explog,Invest_statlog), config, Downsample_len,Stat_log_Counter)
-        plot_visit_counts_3d(Firms)
+        #plot_visit_counts_3d(Firms)
         strategy(State_logs,Firms,config)
         Welfare_Plot(CS_Theory,CS_Real,M_Theory,M_Real)
         reactions(Firms,Possible_States,Possible_Actions,config)

@@ -1,7 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.ticker import MaxNLocator
-from matplotlib.patches import Patch
+from matplotlib.patches import Patch, Rectangle
 from matplotlib.lines import Line2D
 import matplotlib.cm as cm
 from Helper import block_average_2d
@@ -12,6 +12,7 @@ import pandas as pd
 from collections import defaultdict
 import seaborn as sns
 from matplotlib.colors import Normalize, ListedColormap
+from matplotlib.animation import FuncAnimation
 
 def add_equilibrium_lines(ax, title, config, label_x,linewidth=1.2,size=8,borderWidth=0.5):
     monopoly_colour = '#C62828'
